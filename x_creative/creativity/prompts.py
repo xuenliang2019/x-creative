@@ -85,6 +85,32 @@ Example output:
 Generate {num_analogies} analogies for this domain. Focus on novelty and testability.
 """
 
+BISO_DEDUP_PROMPT = """You are an expert at identifying semantically duplicate research hypotheses.
+
+## Task
+Given a numbered list of hypotheses, identify groups of hypotheses that express the same core insight or mechanism — even if they use different wording, come from different source domains, or propose different observables.
+
+Two hypotheses are "duplicates" if a researcher would say: "These are essentially the same idea."
+
+## Hypotheses
+{hypotheses_text}
+
+## Output Format
+Return a JSON object with duplicate groups. Each group is a list of hypothesis indices (0-based) that are semantically equivalent:
+
+```json
+{{
+    "duplicate_groups": [[0, 3, 7], [2, 5]],
+    "reasoning": "Brief explanation of why each group is considered duplicate"
+}}
+```
+
+Rules:
+- Only include groups with 2+ members (skip unique hypotheses).
+- If no duplicates exist, return: {{"duplicate_groups": [], "reasoning": "All hypotheses are semantically distinct."}}
+- Be conservative: when in doubt, do NOT mark as duplicate. Only flag clear semantic overlaps.
+"""
+
 SEARCH_EXPAND_PROMPT = """You are an expert in refining and expanding hypotheses.
 
 ## Target Domain:
