@@ -120,6 +120,11 @@ class TestSettings:
         assert len(settings.biso_pool) == 2
         assert "google/gemini-2.5-pro" in settings.biso_pool
 
+    def test_biso_dedup_enabled_default(self) -> None:
+        """biso_dedup_enabled defaults to True."""
+        settings = Settings(_env_file=None)
+        assert settings.biso_dedup_enabled is True
+
     def test_pareto_settings_defaults(self) -> None:
         """Test QD-Pareto selection defaults."""
         from x_creative.config.settings import Settings

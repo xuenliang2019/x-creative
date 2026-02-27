@@ -415,6 +415,9 @@ class Settings(BaseSettings):
         ]
     )
 
+    # BISO semantic deduplication
+    biso_dedup_enabled: bool = True
+
     # SAGA settings
     saga_enable_by_default: bool = False
     saga_default_budget: float = 100.0
