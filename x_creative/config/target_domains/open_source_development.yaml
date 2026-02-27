@@ -1,0 +1,666 @@
+id: open_source_development
+name: 开源软件开发选题
+description: 创建新的、能够实现用户爆发性增长的开源软件
+constraints:
+- name: innovativeness
+  description: 项目必须有创新性。
+  severity: critical
+  check_prompt: 确认该开源项目是否有：1) 独特的创新性和独特的产品/功能；2) 明显的特色或独特
+- name: os_license_compliance
+  description: 必须选择并清晰标注 OSI 认可的开源许可证（如 Apache-2.0/MIT/GPL-3.0 等），并确保依赖项许可证兼容；在仓库根目录提供 LICENSE，README 中说明授权与贡献者许可（如是否需要 
+    CLA/DCO）。
+  severity: critical
+  check_prompt: 检查该开源项目是否：1) 使用 OSI 认可的许可证并在根目录包含 LICENSE；2) README 中明确授权信息；3) 依赖许可证与项目许可证兼容且无明显冲突（例如 GPL 
+    与闭源依赖/不兼容条款）。如有缺失或冲突，判定为不满足。
+- name: frictionless_onboarding
+  description: 必须极大降低首次使用门槛：提供一条命令或最短步骤的安装与快速上手（Quickstart），并包含可复制运行的示例；尽量避免需要复杂环境、账号申请或冗长配置才能看到“成功运行”。
+  severity: critical
+  check_prompt: 检查 README/文档是否包含：1) 清晰的安装步骤；2) 可复制粘贴的一条命令或最短 Quickstart；3) 示例输出或可验证结果；4) 
+    首次使用是否需要不合理的前置条件（复杂配置/注册密钥）？若无法在合理时间内完成首次成功运行，判定不满足。
+- name: viral_growth_loops
+  description: 产品设计必须内置可自然传播的增长回路（如分享链接/可嵌入组件/生成可公开展示的产物/团队协作邀请/模板市场等），使用户在使用过程中产生可见成果并促成传播。
+  severity: important
+  check_prompt: 评估该开源软件是否存在至少一种明确的增长回路：用户在完成核心任务后能生成可分享/可嵌入/可协作扩散的内容或入口，并在文档中说明如何触发与分享。若完全缺失或仅依赖口碑，没有产品级机制，判定不满足。
+evaluation_criteria:
+- 用户增长率 (User Growth Rate) — 每周/每月活跃用户（WAU/MAU）环比与同比增长
+- 留存率 (User Retention Rate) — D1/D7/D30 留存与 cohort 留存曲线
+- 转化漏斗效率 (Activation/Conversion Funnel) — 安装→首次成功运行→完成关键任务的转化率与耗时
+- 分发与安装成功率 (Installation/Onboarding Success Rate) — 安装失败率、首次启动成功率、平均上手时间（Time-to-First-Success）
+- 口碑与自传播系数 (Viral Coefficient / Referral Rate) — 分享/邀请带来的新增用户占比、K 因子估算
+- 社区贡献活跃度 (Community Contribution Activity) — 外部贡献者数量、PR/Issue 数量、合并率与贡献者复用率
+- 维护响应与发布节奏 (Maintainability & Release Cadence) — Issue 首次响应时间、修复周期、发布频率、回归率
+- 生态采纳与依赖增长 (Ecosystem Adoption / Dependency Growth) — 被下游项目依赖数、插件/集成数量、第三方集成增长率
+anti_patterns:
+- 把“开源”当作营销口号却不公开路线图与决策过程，导致社区不信任并迅速流失。
+- 只追求爆款功能而忽视核心稳定性与兼容性（频繁破坏性变更），让新用户试用一次就弃用。
+- 文档缺失或只写给作者自己（无快速上手、示例与常见问题），让潜在用户无法在5分钟内跑起来。
+- 贡献门槛过高（无贡献指南、无issue模板、无可复现环境），把愿意帮忙的用户挡在门外。
+- 对外部PR和issue长时间不回应或态度生硬，形成“维护者不可接近”的口碑抑制增长。
+- 缺少可预测的发布节奏与版本语义（随意发版、变更日志不清），让团队用户无法放心集成。
+- 把所有需求都塞进主仓库（无插件机制、无扩展点），导致复杂度爆炸并拖慢迭代与采用。
+- 安全与供应链治理缺位（不修漏洞、不发公告、无签名/无SBOM），一次事件就摧毁增长势头。
+- 许可选择随意或与依赖不兼容（后期再改许可证），引发法律风险使企业用户止步。
+- '只盯GitHub Star而不做分发与集成（包管理、Docker镜像、CI模板），导致转化率低、增长虚高。 '
+terminology:
+  开源许可（Open Source License）: 授予任何人使用、修改、分发软件源代码的法律条款集合，用以界定权利义务与再分发条件。
+  许可证兼容性（License Compatibility）: 不同开源许可证在组合、链接或再分发时能否同时满足其条款要求的可行性判断。
+  贡献者许可协议（CLA）: 贡献者向项目方声明其代码贡献权属与授权范围的法律协议，通常用于降低版权与专利风险。
+  开发者体验（DX, Developer Experience）: 开发者在安装、学习、调试、扩展与贡献过程中感受到的效率与摩擦程度的综合指标。
+  零配置上手（Zero-Config Onboarding）: 用户无需复杂环境配置即可完成安装并跑通核心用例的产品特性，目标是将首次成功时间最小化。
+  首次成功时间（TTFS, Time to First Success）: 从用户开始接触项目到实现可感知价值（例如跑通示例、完成关键任务）的时间长度。
+  产品主导增长（PLG, Product-Led Growth）: 以产品自身的可用性、可分享性与自传播机制驱动获客与扩张的增长策略，而非主要依赖销售或市场投放。
+  分发渠道（Distribution Channel）: 软件被发现、安装与传播的路径与平台（如包管理器、容器镜像仓库、插件市场、模板库等）。
+  网络效应（Network Effects）: 用户数量增长会提升产品对其他用户价值的机制（如生态插件越多越有用），从而促进自增强增长。
+  生态系统（Ecosystem）: 围绕核心项目形成的插件、集成、模板、社区与第三方工具网络，决定扩展性与长期吸引力。
+  可扩展接口（Extension API / Plugin Architecture）: 为第三方扩展预留的稳定边界与契约（如插件接口、事件钩子），使外部能力能安全地组合进入核心系统。
+  兼容性承诺（SemVer / Backward Compatibility）: 通过语义化版本与变更策略对破坏性变更进行约束，降低升级成本并提升生态信任。
+  维护者负载（Maintainer Burden）: 维护者为处理问题、评审合并、发布版本与社区治理所投入的时间与认知成本，影响项目可持续性。
+  可观测性（Observability）: 通过日志、指标与追踪等手段使系统内部状态可推断，从而支持快速定位问题与提升可靠性。
+stale_ideas:
+- 单纯依赖“上 GitHub/码云开源 + README 写清楚 + 加个 MIT/Apache 许可证”来期待自然增长（把开源发布本身当作增长策略）
+- 通过“刷星/刷榜/求 Star（README 里加 Please star）”作为核心增长手段（把可见度指标当作用户增长与留存的替代品）
+- 只做传统内容营销组合：写几篇博客/发 Hacker News/Reddit/掘金/知乎推广、做一次 Product Hunt 发布，期待带来持续爆发性增长（一次性曝光驱动，缺乏产品内生循环）
+- 将“完善文档、写更多教程、做示例项目”作为主要增长杠杆（文档重要但已是常规动作，通常难以单独形成爆发式扩散）
+- 依赖“建立贡献者指南 + Code of Conduct + good first issue + 新手任务”来拉动用户爆发式增长（更偏向贡献者治理的基础设施，难成为增长突破点）
+- 默认采用“Freemium/开源核心 + 企业版商业化（Open Core）”并把它当作增长模式（商业化路径成熟但增长逻辑同质化，常难以带来差异化爆发）
+- 以“把架构做得更先进/更快（微服务、插件化、重构、性能榜单）”作为主要卖点来吸引大规模用户（技术优化常见且边际收益递减，难形成独特传播钩子）
+- 围绕“建社区：Discord/Slack/微信群、办线上分享会/Meetup、做周报”作为增长核心（社区运营是常规配套，单独很难成为可复制的爆发增长引擎）
+source_domains:
+- id: 流行病学与传播动力学
+  name: 流行病学与传播动力学
+  name_en: Epidemiology & Transmission Dynamics
+  description: 
+    流行病学与传播动力学领域的核心概念和可迁移结构。爆发式增长可被视为“传播过程”。用感染/传播模型来设计开源项目的获客与扩散机制（如模板化分享、可复用组件、社交证明、低摩擦上手）并量化关键参数（传播率、留存率、传播代际）。
+  structures:
+  - id: compartment_flow_model
+    name: 分舱流动模型（SIR/SEIR 类比）
+    description: 把个体按状态分组，并用“转移率”描述状态间流动，从而刻画系统随时间的结构性变化。
+    key_variables:
+    - compartments(状态分组)
+    - transition_rates(转移率)
+    - population_size(总体规模)
+    - time(时间)
+    dynamics: 状态在分舱之间按转移率流动；外部输入/输出与内部转移共同决定各舱占比随时间的演化，可用于识别“增长—峰值—衰退”阶段。
+  - id: effective_reproduction_threshold
+    name: 有效再生数与阈值（R0/Re>1 的扩张条件）
+    description: 用一个综合指标表示“平均带来多少新增”，并以阈值1划分扩张与衰退两种宏观态。
+    key_variables:
+    - R0_or_Re(基础/有效再生数)
+    - contact_rate(接触/传播机会)
+    - transmission_prob(成功率)
+    - removal_rate(移除/流失率)
+    dynamics: 当 Re>1 时系统进入自增强增长（规模扩大）；当 Re<1 时增长无法自持并逐步衰退；干预本质是降低分子项或提高移除项以跨过阈值。
+  - id: final_size_relation
+    name: 最终规模关系（Final Size）
+    description: 在给定传播强度与初始条件下，系统存在可估计的“累计影响上限”，并与早期增长指标存在约束关系。
+    key_variables:
+    - initial_susceptible(初始可影响群体)
+    - R0(传播强度)
+    - cumulative_incidence(累计影响/采用量)
+    - time_horizon(时间窗口)
+    dynamics: 早期的增长速度与最终累计规模并非独立；在资源/可达群体有限时，增长会因“剩余可影响群体减少”而自然放缓并趋于饱和。
+  - id: generation_interval_and_lag
+    name: 代际间隔与滞后（潜伏期/代间隔）
+    description: 系统响应存在内生延迟：输入变化不会立刻反映在可观测输出上，而是通过分布化的滞后传播。
+    key_variables:
+    - latent_period(潜伏/准备时间)
+    - generation_interval(代间隔)
+    - reporting_delay(观测延迟)
+    - time_series(时间序列)
+    dynamics: 因滞后与分布效应，短期数据会“错位”真实变化；干预效果常在若干个代际间隔后才显现，评估需考虑卷积/延迟校正。
+  - id: heterogeneous_network_spread
+    name: 异质性与网络传播（超传播/社区结构）
+    description: 传播机会在个体与连接结构上高度不均匀，少数高连接节点或桥接边可主导整体扩散路径与速度。
+    key_variables:
+    - degree_distribution(连接度分布)
+    - mixing_matrix(群体混合矩阵)
+    - cluster_structure(社区/簇结构)
+    - super_spreader_fraction(高影响节点比例)
+    dynamics: 在异质网络中，扩散呈现“局部爆发—跨社区跳跃—全局扩张”；针对关键节点/桥接关系的干预比平均化干预更能改变整体轨迹。
+  target_mappings:
+  - structure: compartment_flow_model
+    target: 开源项目贡献者分舱流动模型：将开发者按参与状态（潜在关注者→首次贡献者→活跃贡献者→核心维护者→流失/休眠）分组，并用状态转移率刻画贡献者队伍随时间的增长—峰值—衰退演化，用于选题评估项目健康度与可持续性
+    observable: 1) 分舱规模（按时间窗统计）：watch/star 后未贡献人数、首次 PR/issue 
+      人数、近期活跃贡献者人数（如近30/90天有commit/PR/issue/review）、核心维护者人数（merge权限/高合并量/高review量）、休眠/流失人数（连续N天无活动）；2) 
+      转移率：关注者→首次贡献（star/watch到首次PR/issue的转化率）、首次→活跃（首次后N天内再次贡献比例）、活跃→核心（合并权限获得率或贡献份额达到阈值比例）、活跃/核心→流失（留存率/流失率）；3) 
+      外部输入/输出：新增关注者/新fork/新贡献者流入率与离开率；4) 时间序列强度指标：commit/PR/issue/review 频率、平均响应时间、PR合并时间、issue关闭率、backlog增长率、bus 
+      factor/贡献集中度（Gini/Top-K占比）
+  - structure: effective_reproduction_threshold
+    target: 开源项目的有效增长系数与可持续阈值（项目是否能自我维持并扩张：Growth>1 扩张，<1 衰退）
+    observable: 单位时间“新增贡献/需求流入”与“流失/处理能力”的比值及其组成项：新增贡献者数（新 PR/commit 作者、首次贡献者）、贡献产出速率（PR/commit/issue 
+      处理量）、外部触达/传播机会（stars/forks 增速、引用/转发、下载/安装量）、转化成功率（访客→star、star→fork、fork→PR、PR 通过率/合并率）、移除/流失率（贡献者留存率、维护者离开率、未合并 
+      PR 关闭率、issue 积压增长率、响应/合并中位时间上升）。当新增贡献与转化带来的有效产出超过流失与积压（>1）则进入自增强增长，反之逐步衰退。
+  - structure: final_size_relation
+    target: 选题的最终影响规模关系（在给定初始可触达用户/场景与传播强度下，开源项目/功能的最终采用与累计影响存在可估计上限，且与早期增长指标存在约束；随着剩余可触达人群减少，增长自然放缓并趋于饱和）
+    observable: initial_susceptible：目标生态的潜在用户/项目基数（相关语言/框架活跃项目数、同类工具下载/安装基数、目标平台活跃开发者数、可集成仓库数）；R0：传播/扩散强度（star/fork 
+      复制系数、外部引用与转发率、依赖传播率、从曝光到安装/使用的转化率、社区内容触达率）；cumulative_incidence：累计采用/影响（累计下载量、累计安装活跃数、累计依赖者/被集成项目数、累计API调用量、累计PR/issue参与人数、累计引用/提及次数）；time_horizon：时间窗口（发布后7/30/90/180天的统计窗口、版本周期数）；早期增长指标：首周/首月
+      star/fork/下载/依赖增长斜率、issue/PR新增速率；饱和/放缓信号：新增star/下载/依赖的增长率持续下降、活跃贡献者/新增用户进入平台期、渗透率接近目标生态上限（已采用/潜在基数）
+  - structure: generation_interval_and_lag
+    target: 
+      开源项目的“代际间隔与滞后”效应：从投入/干预（如引入新维护者、发布治理规则、合并关键特性、修复架构债务、采用新CI）到可观测结果（质量、活跃度、用户增长、缺陷率）之间存在内生延迟与分布化传播，短期指标可能错位真实变化，需要按开发—发布—采用链路进行滞后校正与效果归因。
+    observable: "1) 潜伏/准备时间(latent_period)：PR从创建到首次评审/首次CI通过的时间；issue从创建到首次响应时间；新贡献者从首次互动到首次合并的用时；设计/提案(ADR/RFC)从提出到接受的用时。\n\
+      2) 代间隔(generation_interval)：相邻版本发布间隔(release cadence)；从代码合并到进入发布/制品的lead time；从缺陷引入到被发现/修复的时间；从安全修复合并到下游依赖发布包含修复的时间。\n\
+      3) 观测延迟(reporting_delay)：bug报告相对缺陷引入的滞后（通过git blame+issue时间戳估计）；下载/使用统计更新延迟（包管理器/镜像统计滞后）；CI失败/回归在夜间构建或周期任务中被发现的延迟；SLO/监控告警触发与事件发生的滞后。\n\
+      4) 时间序列(time_series)：按周/月的commit/PR/issue流入与吞吐；PR合并率与平均周期时间；发布频率与变更规模；缺陷密度、回归率、崩溃率；依赖下载量、star/fork增长、活跃贡献者数；新贡献者留存率。"
+  - structure: heterogeneous_network_spread
+    target: 开源项目协作网络的异质性与信息/代码变更传播（核心贡献者、桥接贡献者与跨模块/跨社区扩散）
+    observable: 贡献者-仓库/模块双部图与交互网络指标：贡献者度分布（提交/PR/Issue评论连接数、所有者/维护者集中度、bus 
+      factor）、群体混合矩阵（新手/核心/组织内外在代码审查与合并中的交互比例、语言/模块/时区/公司属性的同配/异配）、社区/簇结构（模块依赖图与协作图的社团划分、模块化度、跨簇边比例、桥接节点介数中心性）、“超级传播者”比例（top
+      X%贡献者产生的提交/合并/审查/issue关闭占比、关键维护者的review/merge吞吐）、传播轨迹代理（变更跨模块扩散次数、跨仓库同步PR数量、回归/漏洞修复在fork/下游的传播延迟与覆盖率）
+- id: 行为经济学与助推理论
+  name: 行为经济学与助推理论
+  name_en: Behavioral Economics & Nudge Theory
+  description: 
+    行为经济学与助推理论领域的核心概念和可迁移结构。开源项目的“采纳”往往取决于默认选项、损失厌恶、即时回报等非理性因素。用助推与激励兼容机制设计贡献与使用路径（默认配置、即时成功反馈、最小承诺贡献），提升激活与转介绍。
+  structures:
+  - id: choice_architecture_default_effect
+    name: 选择架构-默认项效应
+    description: 在不剥夺自由选择的前提下，通过设置默认项与呈现顺序，显著影响个体最终选择与行动概率。
+    key_variables:
+    - default_option
+    - opt_out_cost
+    - choice_set_complexity
+    - visibility_salience
+    - decision_latency
+    dynamics: 当选择集复杂且决策者有限理性时，个体更倾向沿用默认项；退出成本越高、默认项越显著，默认项被采纳的比例越大。
+  - id: framing_and_reference_dependence
+    name: 框架效应-参照依赖与损失厌恶
+    description: 同一方案因信息表述方式与参照点不同，会触发不同的风险偏好与行动倾向。
+    key_variables:
+    - reference_point
+    - gain_loss_frame
+    - loss_aversion_strength
+    - perceived_risk
+    - outcome_uncertainty
+    dynamics: 当方案被描述为“避免损失”而非“获得收益”时，更易促进行动；参照点改变会重排偏好排序，损失厌恶越强，该效应越显著。
+  - id: bounded_rationality_heuristic_shortcuts
+    name: 有限理性-启发式决策捷径
+    description: 在信息不完全、时间压力或认知负担下，人们使用简化规则（启发式）做决定，导致系统性偏差但也可被利用进行轻量干预。
+    key_variables:
+    - cognitive_load
+    - information_quality
+    - time_pressure
+    - heuristic_cues
+    - error_rate
+    dynamics: 认知负担越高，决策越依赖少量线索（如社会证明、权威、可得性）；线索设计改变会系统性改变选择分布，同时可能降低/提高错误率。
+  - id: positive_reinforcement_and_feedback_loops
+    name: 正强化-反馈回路驱动持续行为
+    description: 通过及时、明确、低成本的正向反馈与奖励，形成行为—收益—再行为的自增强循环，提升持续参与与投入。
+    key_variables:
+    - reinforcement_timing
+    - reward_salience
+    - effort_cost
+    - progress_visibility
+    - repeat_behavior_rate
+    dynamics: 奖励越及时且可见，个体越可能重复该行为；当进度可视化降低不确定性时，持续投入上升并形成路径依赖的正反馈循环。
+  - id: asymmetric_paternalism_and_behavioral_constraints
+    name: 非对称家长主义-行为约束设计
+    description: 通过最小干预为“易犯错者”提供保护，同时对“理性者”保持低干扰，核心是降低行为失败而非强制一致。
+    key_variables:
+    - target_group_heterogeneity
+    - behavioral_failure_risk
+    - intervention_intrusiveness
+    - compliance_cost
+    - opt_out_freedom
+    dynamics: 当群体异质性高时，采用可退出、低侵入的干预能在提高总体福利的同时减少反弹；干预强度与可退出性共同决定接受度与效果。
+  target_mappings:
+  - structure: choice_architecture_default_effect
+    target: 开源选题与路线图的默认项效应（通过预设默认模板/标签/优先级/问题表单与呈现顺序，在不限制贡献者选择的情况下，引导社区更倾向认领与推进默认推荐的功能、Issue 或项目方向）
+    observable: 默认标记/模板项的采纳率（如被默认勾选的功能选项出现频率、默认标签 Issue 的占比）；Issue/PR 
+      认领与合并分布（默认推荐项的认领率、完成率、合并率、中位处理时长）；退出成本代理（更改默认设置所需步骤数、是否需要额外审批/讨论、从默认模板移除字段的次数）；可见性/显著性代理（默认项在 
+      README/CONTRIBUTING/Issue 表单中的位置与排序、置顶数量、被自动分配到首页/看板首列的比例）；选择集复杂度与决策延迟（同时开放的备选提案数、待办 Issue 数、首次贡献者从打开仓库到提交首个 PR 
+      的时间、从提案创建到被采纳的时间）。
+  - structure: framing_and_reference_dependence
+    target: 
+      开源项目选题与方案评审中的“叙事框架效应”：同一开发选题在以“避免损失/降低风险（安全漏洞、维护负债、合规风险、用户流失）”还是“获得收益/新增功能（新增用户、市场机会、性能提升）”表述，以及以何种基线参照点（现状、竞品、SLO/路线图、社区期望）对比时，会显著改变维护者与社区对优先级、资源投入与风险承受的偏好；损失厌恶越强的团队/社区越倾向优先选择被表述为“止损/补洞”的选题
+    observable: 1) 议题/PR/提案文本的框架特征：包含“fix/mitigate/prevent/regression/security/compatibility/breaking/incident/technical
+      debt”等止损词的比例 vs “add/feature/innovate/growth/adopt/boost”等增益词比例；2) 
+      参照点显式性：是否引用基线（当前版本、竞品对标、SLO/性能基准、路线图承诺、事故复盘、CVE/合规条款）及其出现频次；3) 
+      决策与行动结果：止损框架提案的合并率、获得维护者批准/标签（P0/P1、security、blocker）速度、中位首次响应时间、从提案到发布的周期；4) 资源配置：被分配的核心维护者数量、里程碑纳入率、赞助/赏金金额；5) 
+      风险与不确定性代理：评论中风险词（risk/uncertain/maybe/break/impact）密度、要求补充基准/PoC/复现实验的次数；6) 损失厌恶强度代理：社区对回归/破坏性变更的敏感度（回滚次数、回归相关 
+      issue 占比、breaking-change 反对意见占比）、对安全问题的优先级提升幅度（安全 issue 相对普通 feature 的处理时延差）
+  - structure: bounded_rationality_heuristic_shortcuts
+    target: 
+      开源软件选题与贡献决策中的有限理性与启发式：在信息不完全、时间/精力受限下，开发者与维护者依赖星标、趋势榜、维护者声望、最近活跃度等少量线索来选择“做什么/投什么”，从而造成系统性选题偏差并可通过线索/界面设计进行轻量干预
+    observable: 开发者选题与贡献行为的可观测代理：仓库 stars/forks/watchers、GitHub Trending/推荐曝光、issue/PR 
+      数量与合并率、首次响应时间与关闭时间、最近提交频率与发布频率、贡献者数与集中度、README/文档完备度与 badges（CI 通过/覆盖率/安全扫描）、maintainer 
+      关注者数与组织背书、标签/描述质量、外部依赖下载量（npm/pypi 等）、从曝光到点击/收藏/clone/首次提交的转化率、错误率代理（缺陷引入率、回滚率、未解决高优先级 bug 数、CVE 数）
+  - structure: positive_reinforcement_and_feedback_loops
+    target: 以正向反馈与奖励机制驱动开源项目贡献的持续性（形成“贡献—认可/收益—再贡献”的正反馈回路）
+    observable: PR/Issue 首次响应时间与合并/关闭时长；贡献被合并率与发布说明/鸣谢中被提及次数；评论/Reaction（👍❤️🎉）与代码评审正向反馈数量；贡献者进度可视化程度（看板/里程碑/Good first 
+      issue 标注覆盖率）与任务状态更新频率；贡献者留存与复贡献率（30/90 天内再次提交的比例）、连续贡献周数；单次贡献成本代理（平均 PR 规模、CI 失败率、文档/贡献指南完整度、首次通过率）
+  - structure: asymmetric_paternalism_and_behavioral_constraints
+    target: 
+      开源项目中的“非对称干预式”开发者体验与治理机制设计：以默认安全/合规的轻量约束保护新手与高风险行为场景，同时对资深贡献者保持低摩擦并提供明确的退出/覆盖通道，目标是降低常见贡献失败（误操作、引入漏洞、破坏性变更）而非强制所有人采用同一流程
+    observable: "1) 群体异质性：新贡献者占比、贡献者经验分布（首次PR比例、历史提交数/PR通过率分位数）\n2) 行为失败风险：CI失败率、回滚/撤销提交比例、发布后回归/漏洞数量、误合并（revert后标注）频次\n3)
+      干预侵入性：必选检查项数量（required checks）、强制评审人数、PR模板字段数、阻塞式门禁比例（blocking vs non-blocking）\n4) 合规成本：从开PR到合并的中位耗时、平均评论轮次、单PR CI时长与运行次数、贡献指南长度/步骤数\n\
+      5) 退出自由度：可用override/skip机制数量（例如允许维护者跳过检查）、紧急合并通道（hotfix bypass）使用率、可配置策略（仓库/目录级规则）覆盖率\n6) 接受度与反弹：贡献者留存率（30/90天）、首次贡献者回流率、因流程关闭/搁置的PR比例、治理/流程相关争议issue数量与情绪指标"
+- id: 复杂网络科学与级联扩散
+  name: 复杂网络科学与级联扩散
+  name_en: Network Science & Cascades
+  description: 复杂网络科学与级联扩散领域的核心概念和可迁移结构。开源增长常由依赖关系、包管理生态、社区关系网络驱动。用网络中心性、阈值扩散与级联失败/级联传播模型，寻找“切入点模块”和“生态位邻接”来触发生态级扩散。
+  structures:
+  - id: load_redistribution_cascade_control
+    name: 负荷—重分配驱动的级联控制
+    description: 节点承载负荷并通过局部信息传递动态调整（重分配/限流/迁移）以避免单点过载触发大规模级联失效。
+    key_variables:
+    - node_load
+    - node_capacity
+    - redistribution_rule
+    - information_latency
+    - topology
+    dynamics: 当某节点负荷超过容量时，其负荷按某规则转移到邻居或被抑制；若重分配导致邻居再超载则触发连锁反应。通过改变重分配比例、触发阈值或信息时延，可在“局部修复”与“级联扩大”之间切换。
+  - id: self_organized_criticality_drive_dissipation_balance
+    name: 自组织临界性：驱动—耗散平衡导致幂律级联
+    description: 系统在持续外部驱动与内部耗散竞争下自发靠近临界点，小扰动即可引发从小到大的幂律级联事件，并可能出现极端“龙王”事件。
+    key_variables:
+    - drive_rate
+    - dissipation_rate
+    - thresholds
+    - coupling_strength
+    - cascade_size_distribution
+    dynamics: 驱动持续累积“应力/负荷”，耗散以某机制释放；当局部超过阈值触发松弛并向邻域传播，级联规模呈幂律。调节驱动力的时序/粒度或增强耗散通道，可把系统从临界附近拉回亚临界，降低大级联概率。
+  - id: hierarchical_modular_structure_robustness_resilience
+    name: 分层模块化：块结构决定鲁棒性与传播边界
+    description: 网络存在多尺度社区/层级块结构时，传播通常在模块内快速扩散、跨模块受“桥接边/上层通道”约束，从而形成可控的传播边界与脆弱点。
+    key_variables:
+    - community_structure
+    - inter_module_connectivity
+    - bridge_edges
+    - hierarchy_levels
+    - attack_failure_mode
+    dynamics: 模块内高密度连接提升局部传播速度，模块间稀疏连接限制外溢；但少量桥接边一旦失效或被过载，会同时降低可达性并触发跨模块级联。通过识别与加固桥接边或调整层级耦合强度，可在“隔离故障”与“全局协同”间权衡。
+  - id: feature_similarity_to_connectivity_mapping
+    name: 特征→相似度→连边的生成映射
+    description: 网络连接可视为由节点特征决定相似度，再由相似度决定连边概率/强度的两段映射，解释同质性聚集与结构演化。
+    key_variables:
+    - node_features
+    - similarity_metric
+    - link_probability_function
+    - feature_drift
+    - network_density
+    dynamics: 特征相近的节点更易形成连接并强化社群结构；特征随时间漂移会改变相似度，从而引发连边重排与社区重构。改变相似度度量或连边函数（阈值/温度参数）会改变网络密度、模块化与传播路径。
+  - id: local_attachment_rules_preferential_homophily_triadic_closure
+    name: 局部成边规则：偏好连接×同质性×三角闭合
+    description: 网络增长常由简单局部规则驱动：更倾向连接高连接度节点（偏好连接）、相似节点（同质性）、以及朋友的朋友（三角闭合），从而产生重尾度分布与高聚类。
+    key_variables:
+    - attachment_bias
+    - homophily_strength
+    - triadic_closure_rate
+    - node_age
+    - degree_distribution
+    dynamics: 偏好连接造成头部节点持续吸附连接并形成“枢纽”，三角闭合提高聚类并加速局部扩散，同质性增强社区分隔。调节三者权重可改变中心化程度、信息/故障传播速度与跨社区渗透能力。
+  target_mappings:
+  - structure: load_redistribution_cascade_control
+    target: 工作负载重分配驱动的持续交付级联控制（在开源项目中通过任务/PR/Issue/CI资源的动态分流、限流与迁移，避免单点维护者或单一流水线瓶颈过载引发连锁阻塞与质量退化）
+    observable: 
+      维护者与组件层面的负载-容量差：每人/每组件未关闭Issue与待合并PR数量、平均review队列长度、首响应时间/合并时间；重分配规则的代理：代码所有权变更次数、reviewer指派/轮值策略变更、labels/triage自动化规则提交次数、bot自动分派比例；限流/抑制代理：PR冻结窗口、CI并发限制、合并队列启用与配置变更、发布节奏调整；迁移代理：任务在里程碑/项目看板间移动次数、Issue转移到其他仓库/组件的次数；信息时延代理：CI反馈时延、review评论到响应的延迟、通知到处理的延迟；级联效应代理：积压增长率、reopen率、回滚/热修次数、构建失败串联（失败相关性）、关键维护者bus-factor风险指标、依赖更新延迟与安全公告修复延迟
+  - structure: self_organized_criticality_drive_dissipation_balance
+    target: 开源项目生态的自组织临界性：在持续需求/变更驱动与维护/治理耗散能力的平衡下，局部问题触发跨模块/跨依赖的级联故障与工作量爆发（含极端“龙王”式事件，如大规模安全漏洞/破坏性变更引发的连锁修复）
+    observable: drive_rate：单位时间新 issue/PR/功能请求数量、依赖更新/外部 API 变更频率；dissipation_rate：单位时间关闭 issue/合并 PR 
+      数、平均修复时长(MTTR)、审查吞吐量；thresholds：触发大规模返工/事故的阈值（测试覆盖率下限、CI 失败率阈值、未处理 issue 
+      积压上限、SLO/错误预算耗尽点）；coupling_strength：依赖图耦合度（出入度、中心性）、模块间调用密度、单体程度、共享核心库比例、总线因子；cascade_size_distribution：单个变更/漏洞导致的连锁影响规模分布（受影响仓库/包数、需要同步改动的文件/模块数、回滚/热修次数、相关
+      issue/PR 簇大小），并检验是否呈幂律及是否存在极端离群“龙王”事件
+  - structure: hierarchical_modular_structure_robustness_resilience
+    target: 
+      开源软件系统的分层模块化架构与依赖桥接点（关键接口/核心依赖）对缺陷传播、变更影响范围和协作韧性的决定作用：模块内快速演化，跨模块受少数关键依赖与接口约束；桥接点失效或过载会引发跨模块级联故障，需要在“隔离风险”与“全局协同复用”之间设计权衡
+    observable: 1) 依赖/调用图的社区结构指标（模块度 modularity、Louvain/Infomap 社区划分数量与大小分布、层级社区深度）; 2) 模块内/模块间连接密度（intra/inter-edge 
+      ratio、跨包/跨仓库依赖边比例）; 3) 桥接点识别指标（边/节点介数中心性、bridging centrality、最小割边/关节点数量、跨模块API边数）; 4) 
+      层级耦合强度（跨层依赖比、插件/扩展点数量、稳定接口层的变更频率）; 5) 传播与级联代理（缺陷/安全漏洞在依赖链上的扩散范围、变更影响分析的触达模块数、CI失败在多仓库/多模块中的联动次数、发布阻塞的跨模块事件数）; 6) 
+      失效/攻击模式观测（关键依赖单点故障数量、核心维护者bus factor、bridge模块的工单积压与响应时间、关键接口的破坏性变更次数）
+  - structure: feature_similarity_to_connectivity_mapping
+    target: 开发者/项目特征→技术与协作相似度→贡献与协作连边的生成机制（用于解释开源社区的同质性协作、项目网络密度变化与社区重构）
+    observable: 'node_features: 开发者技能栈/编程语言偏好、历史贡献领域、时区与活跃时段、组织/公司、角色(维护者/贡献者)、项目主题与依赖栈；similarity_metric: 语言/主题/依赖重叠度(Jaccard)、代码文件/模块相似度、issue/PR文本语义相似度(embedding
+      cosine)、共同关注仓库/共同参与标签；link_probability_function: 在同一PR评论/代码审查/共同提交/共同维护同一仓库的概率随相似度变化的函数(可用logistic回归、阈值模型或温度softmax拟合)；feature_drift:
+      技术栈迁移、兴趣主题变化、组织变动、活跃度衰减/爆发的时间序列；network_density: 开发者-开发者协作图或项目-项目依赖图的边密度、平均度、聚类系数、模块化Q、社区数变化、边的重排率(edge churn)、跨社区连接比例、信息传播路径长度(如PR响应链路长度)'
+  - structure: local_attachment_rules_preferential_homophily_triadic_closure
+    target: 开源软件生态中的协作关系形成规则：贡献者/项目在“名气-相似性-共同协作者”驱动下建立新的协作链接（如提交、评审、共同维护、依赖引入），进而影响项目中心化、社区分化、知识扩散与风险传播
+    observable: "1) 偏好连接（attachment_bias）：新贡献者首个/新增贡献更倾向流向高活跃/高声望项目或核心维护者的程度（按历史commit数、star、fork、issue/PR处理量、PageRank加权的连边概率）\n\
+      2) 同质性强度（homophily_strength）：连边双方在语言/技术栈/领域标签/组织背景/地理时区/贡献类型上的相似度与实际连边的相关性（assortativity、基于特征相似度的link prediction AUC）\n\
+      3) 三角闭合率（triadic_closure_rate）：\"共同协作者\"存在时形成新协作边的概率（两跳邻居变一跳的比率、共同reviewer/共同仓库后的新增协作比例、聚类系数随时间变化）\n4) 节点年龄（node_age）：项目创建时长、贡献者首次出现至今的时间，用于解释“新项目/新贡献者”更容易被吸附或更依赖三角闭合\n\
+      5) 度分布（degree_distribution）：贡献者-项目二部图或协作者网络的度分布、重尾指数、中心化指标（Gini、最大度占比），以及社区结构指标（模块度、跨社区边比例）"
+- id: 产品增长与扩散创新理论跨社会系统
+  name: 产品增长与扩散创新理论（跨社会系统）
+  name_en: Innovation Diffusion & Growth Modeling
+  description: 
+    产品增长与扩散创新理论（跨社会系统）领域的核心概念和可迁移结构。把开源项目当作创新产品在不同人群中的扩散：早期采用者、意见领袖、模仿效应。用于设计发布节奏、兼容性策略、社区叙事与“可观察收益”，并用模型预测拐点与规模化条件。
+  structures:
+  - id: four_elements_diffusion_system
+    name: 四要素扩散系统（创新-通路-时间-社会系统）
+    description: 任何增长/扩散都可视为“某个创新”经由“传播通路”在“时间”中进入并改变一个“社会系统”的过程；扩散速度与路径由四要素的匹配度共同决定。
+    key_variables:
+    - innovation_object
+    - communication_channels
+    - time
+    - social_system
+    dynamics: 创新在既定社会系统内沿通路传播；通路从大众传播到口碑/网络传播的组合决定早期触达与后期渗透，时间维度体现为阶段性加速与饱和，社会系统结构（圈层/规范/角色）决定可达性与阻力。
+  - id: s_curve_with_threshold
+    name: S 曲线累积扩散与临界点加速
+    description: 累积采纳呈 S 曲线：早期慢、达到临界点后快速增长、最终趋于饱和；对应增量采纳呈钟形曲线。
+    key_variables:
+    - adoption_rate
+    - cumulative_adoption
+    - threshold
+    - market_potential
+    dynamics: 当采纳者比例低时，信息与信任不足导致扩散缓慢；达到临界比例（常被观察为约10%-25%区间的“起飞带”）后，网络效应与可见性增强带来加速；接近潜在上限后边际增量递减，进入平台期。
+  - id: innovator_vs_imitator_dual_influence
+    name: 创新者-模仿者双机制（媒体触达 vs 口碑传染）
+    description: 早期采纳主要由外部信息/大众传播驱动的“创新者”推动，后期增长主要由口碑与同伴影响驱动的“模仿者”推动。
+    key_variables:
+    - external_influence
+    - internal_influence
+    - innovators_share
+    - imitation_strength
+    dynamics: 外部影响提升初始种子用户规模并降低不确定性；内部影响通过社交证明在社区内扩散，形成自强化回路；两者比例决定启动难度、起飞速度与后期增长可持续性。
+  - id: five_stage_adoption_funnel
+    name: 五阶段采纳漏斗（认知-劝说-决策-实施-确认）
+    description: 采纳不是一次性事件，而是从知晓到确认的多阶段转化过程；每一阶段都有不同的信息需求与流失机制。
+    key_variables:
+    - stage_conversion_rates
+    - information_quality
+    - trial_cost
+    - reinforcement_feedback
+    dynamics: 认知阶段依赖可达信息与可解释性；劝说阶段依赖可信背书与相对优势展示；决策阶段受试用门槛与替代方案影响；实施阶段受集成成本/学习成本影响；确认阶段依赖反馈闭环与持续价值，决定留存与再传播。
+  - id: network_homophily_heterophily_bridge
+    name: 同质网络粘滞与异质桥接扩散
+    description: 同质性强的圈层内传播快但外溢弱，跨圈层的异质连接（桥接关系/边界角色）是实现大规模扩散的关键结构。
+    key_variables:
+    - network_homophily
+    - bridge_nodes
+    - cluster_modularity
+    - cross_group_trust
+    dynamics: 创新先在高同质圈层内形成局部采用；若缺乏桥接节点则被“圈层化”锁定；通过边界人群/意见领袖/跨社区协作建立异质连接，可突破结构洞，把局部扩散升级为系统级扩散。
+  target_mappings:
+  - structure: four_elements_diffusion_system
+    target: 
+      开源项目功能/架构/治理等“选题”在开源社区生态中通过不同传播与协作通路（Issue/PR/讨论区/社交媒体/会议/依赖链）随时间被发现、采纳、实现并扩散到更多项目与用户，从而改变项目与生态（采用率、贡献结构、规范与分工）的过程
+    observable: 
+      innovation_object：新增特性/插件/架构改造/新项目提案（RFC/REP/PEP/设计文档）、Issue/PR类型与标签、发布说明中的新功能；communication_channels：Issue/PR/Discussion评论网络、邮件列表、论坛、Slack/Discord/Matrix、社交媒体转发、博客/演讲引用、跨仓库引用与依赖传播（import/require、Docker镜像/Helm
+      chart拉取）；time：从提案到合并/发布的周期、事件时间序列（stars/forks/watchers增长、下载量/活跃用户DAU/MAU、PR吞吐量）、采用曲线阶段（早期试用-增长-饱和）与版本迭代节奏；social_system：贡献者与组织结构（核心/外围贡献者、bus
+      factor、组织集中度）、治理与规范（CODEOWNERS、贡献指南、决策流程）、社交网络圈层（协作图、模块所有权）、阻力指标（争议线程长度、拒绝率、维护者响应时间、冲突/回滚次数）、生态影响（下游依赖数、被其他项目采纳次数、插件生态规模变化）
+  - structure: s_curve_with_threshold
+    target: 开源项目在开发者与用户社区中的采纳扩散（从早期试用到临界点后生态加速，再到成熟饱和）的增长规律
+    observable: 时间序列代理指标：累计 Stars/Forks/Watchers、累计下载量（包管理器如 
+      npm/pypi/crates/conda）、累计依赖项目数（dependents）、累计独立贡献者数；增量代理指标：每周/每月新增 
+      Stars、下载量增长率、每周新增依赖数、新增贡献者数；临界点信号：上述增量指标在某一窗口内持续跃迁（例如环比增长率显著抬升并维持）、Issue/PR 数量快速上升、外部引用/教程/媒体提及量激增；饱和信号：新增 
+      Stars/下载/依赖的边际增量下降并趋于稳定
+  - structure: innovator_vs_imitator_dual_influence
+    target: 开源项目选题的双机制扩散（外部曝光驱动的“创新选题” vs 
+      社区口碑驱动的“模仿选题”）：选题在早期主要依靠媒体/平台曝光与权威背书获得最初关注与贡献者，后期主要依靠开发者社区的社交证明、复用与口碑传播持续增长；两类驱动力的比例决定选题冷启动难度、贡献者增长速度与长期活跃度。
+    observable: external_influence：首发/早期曝光事件次数与强度（Hacker News/Reddit/公众号/大会演讲/新闻稿/产品榜单上榜）、外部引流占比（referrer 
+      中来自社交媒体/新闻站点的流量）、早期 star/fork 的突增与外部事件时间对齐度；internal_influence：issue/PR 中“由谁推荐/在哪看到”的引用痕迹、contributors 
+      的邀请链/协作网络扩散（新贡献者与已有贡献者的共同项目/关注关系）、GitHub internal discovery 带来的访问占比、讨论区/群聊转发次数；innovators_share：发布后前 N 
+      天内新增贡献者/安装用户中来自外部曝光渠道的比例、首次提交者中无关联网络节点的占比（与核心团队无共同协作历史）；imitation_strength：后期新增贡献者增长对既有活跃度的敏感度（例如新 PR 数与历史合并 PR 
+      数的回归系数）、依赖/集成数量增长（被其他项目引用、包管理器 dependents）、二次传播标志（博客/教程/插件生态数量）与 star 增长的自相关强度。
+  - structure: five_stage_adoption_funnel
+    target: 开源软件项目采纳与留存漏斗：开发者/团队从发现项目到试用、集成、持续使用并成为贡献者/传播者的五阶段转化过程（认知-劝说-决策-实施-确认），用于指导选题与产品化路线以最大化采纳率与长期留存。
+    observable: 'stage_conversion_rates: 认知→劝说(仓库访问UV→README停留>阈值/Star率)、劝说→决策(Star/Watch→Release下载/包管理安装转化)、决策→实施(安装→首次成功运行/示例通过/首次API调用)、实施→确认(7/30/90天活跃安装留存、版本升级率、重复使用频次)；information_quality:
+      README完整度评分(安装/快速开始/FAQ/对比/架构图/兼容矩阵)、文档覆盖率(公共API文档占比)、示例/教程数量与通过率、Issue首响应时间与解决率；trial_cost: 快速开始耗时(从clone到跑通的中位时间)、依赖数量/镜像体积、配置项数量、最低权限/环境要求、失败率(安装/构建/运行错误率)；reinforcement_feedback:
+      用户反馈闭环指标(采纳者Issue/讨论活跃度、PR/贡献者增长、NPS/满意度调查、Roadmap兑现率、变更日志质量)、口碑与再传播(引用数、博客/课程提及数、二次封装/插件生态数量)、支持响应SLA(维护者响应中位时长)、长期价值(性能回归次数、稳定性/崩溃率、向后兼容破坏频次)'
+  - structure: network_homophily_heterophily_bridge
+    target: 
+      开源项目中“同质贡献者圈层粘滞”与“跨社区桥接协作”对新功能/新工具/开发实践（如CI、安全流程、代码规范）扩散与被采用的影响机制：同语言/同公司/同地域/同技术栈的子社区内更易快速形成局部共识与采用，但若缺乏跨子社区的桥接维护者/协作者，变更会被锁定在单一圈层；通过边界角色（跨项目维护者、生态意见领袖、平台组织者、跨公司工程师）建立异质连接与信任，可将局部采用升级为生态级扩散。
+    observable: 1) network_homophily：贡献者同质性指数（按公司/组织、国家/时区、主要语言与技术栈、模块/子系统标签、角色如maintainer/reviewer/newcomer的同类连边比例）；2) 
+      bridge_nodes：桥接节点识别（跨仓库/跨组织提交与评审者、在不同模块间同时活跃者、网络介数中心性/结构洞约束指标、跨项目issue/PR参与者）；3) 
+      cluster_modularity：协作网络模块度与社区划分数量（基于PR评审、代码共改、issue互动构建图），以及模块间边密度；4) 
+      cross_group_trust：跨圈层信任代理（跨组织PR合入率、首次贡献者PR被接受率、跨模块review响应时间/拒绝率差异、跨组织共同署名commits与共同维护文件比例、治理参与如RFC投票/决策中跨群体支持度）；5)
+      扩散结果指标：新实践/工具的采用范围（采用该工作流的仓库数、引用/迁移到其他项目的次数、模板/配置文件复制传播、依赖生态中启用比例）、采用速度（从首次引入到跨模块/跨仓库扩散的时间）、扩散层级（仅单模块→全仓库→多仓库/多组织）。
+- id: 双边多边平台经济学与生态位设计
+  name: 双边/多边平台经济学与生态位设计
+  name_en: Two-sided/Multisided Platforms & Ecosystem Design
+  description: 
+    双边/多边平台经济学与生态位设计领域的核心概念和可迁移结构。很多“爆发式”开源项目本质是平台：用户、插件作者、企业赞助方、教育者等多方互相强化。平台经济学可迁移到插件市场、模板生态、认证与分成（即使不以盈利为主也能以激励为主）。
+  structures:
+  - id: price_structure_changes_total_volume
+    name: 价格结构—总交易量联动结构
+    description: 在双边/多边平台中，决定系统规模的不仅是“总收费水平”，更关键是“向哪一边收多少”的价格结构；价格结构变化会改变各边参与度与匹配率，从而改变总交易量/总需求。
+    key_variables:
+    - 价格结构(各边收费/补贴分配)
+    - 总价格水平
+    - 跨边网络外部性强度
+    - 各边参与规模
+    - 匹配/交易量(总需求)
+    dynamics: 当跨边网络外部性显著时，平台通过对一侧补贴(降低进入成本)来放大该侧规模，进而提升另一侧的加入意愿与匹配成功率；因此同样的总收费水平下，不同的收费分配会导致不同的系统总产出。
+  - id: cross_side_network_effect_feedback_loop
+    name: 跨边网络外部性正反馈回路
+    description: 一侧用户规模提升会提高另一侧的效用与进入激励，反过来进一步推高第一侧规模，形成增长飞轮；反向也可能出现衰退螺旋。
+    key_variables:
+    - A侧规模
+    - B侧规模
+    - 跨边效用增量(网络外部性)
+    - 多归属成本/切换成本
+    - 活跃度/留存
+    dynamics: A侧增长→B侧价值提升→B侧加入/活跃提升→A侧价值提升的闭环使系统存在临界点：低于临界点难以自增长，高于临界点进入加速扩张；多归属与切换成本决定飞轮强度与锁定程度。
+  - id: quality_heterogeneity_and_aggregation_reconfiguration
+    name: 异质质量与聚合整合重配置结构
+    description: 当平台/供给方存在质量差异时，聚合者(整合平台)通过“筛选、排序、捆绑、统一接口”改变需求分配与佣金/规则，从而重塑生态位与价值捕获。
+    key_variables:
+    - 供给质量分布
+    - 聚合/整合强度(接口统一、流量分发)
+    - 佣金/抽成规则
+    - 搜索/匹配成本
+    - 需求分配(曝光/转化)
+    dynamics: 聚合降低用户搜索成本并集中流量，但会把竞争从“单个平台间”转为“在聚合规则下的排序/标准竞争”；高质量供给可能受益于更可见的排名机制，也可能被佣金与同质化挤压，生态位因此发生重排。
+  - id: governance_balancing_for_open_modular_ecosystem
+    name: 开放模块化生态的治理平衡结构
+    description: 平台生态通常具备开放性、模块化与互补性；治理需要在“开放吸引补完创新”与“控制确保质量/安全/公平”之间动态权衡以维持可持续。
+    key_variables:
+    - 开放度(准入/许可/接口)
+    - 模块边界与标准
+    - 质量控制机制(审核、测试、声誉)
+    - 互补者创新率
+    - 负外部性(滥用、低质、拥塞)
+    dynamics: 开放度提高→互补供给与创新增加→用户价值上升；但开放度过高→负外部性累积→信任与质量下降→参与萎缩；治理通过规则、标准与执法强度的迭代调整，将系统维持在“高创新—可控风险”的区间。
+  - id: evolutionary_game_adaptation_and_equilibrium_shifts
+    name: 演化博弈式适应—均衡迁移结构
+    description: 多方参与者在有限理性下依据收益进行策略复制与调整，系统在不同供需情境与制度参数下会收敛到不同演化稳定均衡(或发生均衡跳变)。
+    key_variables:
+    - 参与者策略集合
+    - 收益函数/激励强度
+    - 供需情境参数(刚性需求、容量约束等)
+    - 复制动态/学习速度
+    - 稳定均衡与吸引域
+    dynamics: 当环境参数或规则(激励、惩罚、分成)变化时，收益排序改变→策略占比沿复制动态演化→系统可能从一个稳定均衡跃迁到另一个；路径依赖使“短期干预”也可能带来长期结构性后果。
+  target_mappings:
+  - structure: price_structure_changes_total_volume
+    target: 维护者—贡献者激励/成本分配结构对项目总贡献产出（合并代码量/交付能力）的联动结构
+    observable: 
+      维护者侧与贡献者侧的成本/激励分配（如：贡献门槛、CLA/DCO要求、CI时长、评审要求、补贴与激励如bounty/赞助/Swag、文档与上手支持）与项目产出的联合指标：新增/活跃贡献者数、PR提交量与合并量、PR合并率、PR/issue中位处理时长、发布频率、下载/依赖增长、留存贡献者比例
+  - structure: cross_side_network_effect_feedback_loop
+    target: 
+      开源项目的开发者-用户跨边网络效应正反馈增长回路（开发者规模提升→功能/质量/响应速度提升→用户采用与活跃提升→反馈/需求/口碑/资金提升→吸引更多开发者与贡献，形成增长飞轮；反之可能进入衰退螺旋，存在冷启动临界点与由切换成本/生态锁定决定的飞轮强度）
+    observable: 开发者侧：活跃贡献者数（月/周）、新贡献者数、PR/commit 数、PR 合并率与合并时延、issue 处理速度（首次响应/关闭时长）、发布频率、代码审查参与人数；用户侧：GitHub stars 
+      增量、fork/clone 量（如可得）、下载量/安装量（npm/pypi/crates/maven/homebrew 等）、容器镜像 pull 数（Docker 
+      Hub/GHCR）、网站/文档访问量（如可得）、活跃使用者数（遥测/匿名统计如可得）、讨论与支持量（Discussions/论坛/Slack/Discord 成员与消息量）；跨边效用：版本质量代理（崩溃率/回归 issue 
+      数、缺陷密度）、文档完善度（文档页数/覆盖率）、生态集成数（插件/适配器/第三方集成）；多归属/切换成本：与替代品 API 
+      兼容度、迁移指南与工具是否存在、锁定特性（自定义格式/专有配置）数量、导入导出能力、与主流标准兼容性；留存与临界点信号：贡献者留存率（次月/季度仍活跃）、用户留存（持续下载/活跃）、净增长率、增长拐点（stars/下载/贡献者曲线从线性转加速或转衰退）
+  - structure: quality_heterogeneity_and_aggregation_reconfiguration
+    target: 
+      开源组件/项目存在质量异质性时，聚合与整合层（如包管理器、应用商店、插件市场、统一分发与依赖解析工具、标准化API/SDK与脚手架）通过“收录审核、排序推荐、依赖捆绑、统一接口与规范、规则与费用/赞助机制”改变用户与开发者的选择路径与流量分配，从而重塑项目生态位、采用率与价值捕获（维护资源、赞助、贡献、商业化机会）
+    observable: "1) 质量异质性：缺陷率（issue/千LOC）、安全漏洞数(CVE/OSV)、测试覆盖率、发布频率、响应时间（PR/issue中位处理时长）、Bus factor、文档完整度、用户满意度（星标/下载比）\n\
+      2) 聚合/整合强度：是否进入主流注册表/市场（npm/PyPI/Maven/VSCode/JetBrains插件市场等）、是否被发行版/云市场收录、是否进入“官方/推荐”列表、是否被框架脚手架/模板默认集成、统一接口/兼容层采用度（实现某标准API数量、适配器数量）\n\
+      3) 排序/分发与规则：搜索排名位置、推荐曝光量、首页/精选出现次数、下载来源占比（来自搜索/推荐/依赖传递）、被依赖排名（依赖图入度）、默认安装/依赖传递导致的间接安装量\n4) 佣金/抽成与价值捕获替代指标：赞助金额(GitHub
+      Sponsors/OpenCollective)、企业支持合同线索数（如公开案例/客户列表增长）、捐赠转化率（赞助者/下载量）、维护者时间投入变化（提交量、review量）、生态位重排（同类项目的下载份额变化、fork迁移、替代/弃用事件）"
+  - structure: governance_balancing_for_open_modular_ecosystem
+    target: 开源项目在“开放协作促进创新”与“治理控制保障质量/安全/公平”之间的动态治理平衡机制（面向模块化架构与插件/依赖生态），以维持可持续的贡献者与用户生态
+    observable: 
+      许可与贡献准入策略（许可证类型、CLA/DCO、成员晋升规则、提交权限分层）；接口与模块化边界（API/ABI稳定性承诺、语义化版本、插件/扩展点数量与变更频率、模块耦合度）；质量控制（CI覆盖率、测试覆盖率、代码审查要求与平均审查时长、失败构建率、发布回滚率、缺陷密度）；安全与供应链治理（CVE数量与修复时长、依赖漏洞扫描结果、SBOM/签名发布、恶意PR/投毒事件数）；社区活力与创新（活跃贡献者数、外部贡献占比、PR/Issue吞吐量与关闭周期、新增模块/插件数量、第三方生态包数量与增长率）；负外部性与信任（重复/低质Issue比例、维护者回应延迟、行为准则违规事件、用户留存/下载量变化、弃坑/维护者流失率）
+  - structure: evolutionary_game_adaptation_and_equilibrium_shifts
+    target: 
+      开源项目治理与贡献激励下的演化协作均衡迁移：在不同需求压力与资源约束、激励/惩罚与分成规则变化时，贡献者与维护者（以及企业赞助方）的策略（如积极贡献/搭便车、严格评审/宽松合并、及时修复/延后处理、持续维护/放弃维护）通过学习与复制动态演化，导致项目从一种稳定协作均衡（高质量高响应/低冲突）跃迁到另一种均衡（维护者倦怠、PR
+      积压、分叉增多或被企业主导等），并存在路径依赖
+    observable: 贡献策略占比与均衡状态的代理指标：1) 贡献结构：活跃贡献者数、贡献集中度（Gini/Top-N 占比）、新贡献者留存率、PR/issue 发起者复访率；2) 复制动态/学习速度：周/月粒度的提交/PR 
+      速率变化、贡献者转化率（首次提交→持续贡献）、响应时间分布的趋势；3) 收益/激励强度：赞助金额与赞助者数、赏金(issue bounty)数量、认可机制（release note 
+      致谢次数、reviewer/maintainer 权限授予频率）、CI 通过率与合并后回滚率（反映合并收益/风险）；4) 供需情境与容量约束：issue/PR 
+      到达率、积压量(backlog)、平均关闭时间、维护者可用时间代理（review 时长、活跃维护者数）、版本发布频率；5) 
+      稳定均衡与跃迁信号：长期稳定的平台期（backlog/响应时间收敛）、突变点（结构性拐点检测）、分叉/迁移事件数、维护者退出与接任事件、治理规则变更（CODEOWNERS/CONTRIBUTING/CI gate/CLA 
+      引入）前后指标的结构性断点
+- id: 文化演化与模因理论
+  name: 文化演化与模因理论
+  name_en: Cultural Evolution & Memetics
+  description: 文化演化与模因理论领域的核心概念和可迁移结构。开源项目的传播不仅靠功能，还靠“可复制的叙事与符号”（命名、口号、模板、示例）。文化演化可用于设计可复制的使用仪式（copy-paste 
+    demo）、可变异的组件（fork-friendly）来提高传播适应度。
+  structures:
+  - id: replication_variation_selection_loop
+    name: 复制—变异—选择循环
+    description: 信息单元通过复制在群体中扩散，复制过程中产生变异，环境压力对不同变体进行筛选，从而推动整体演化。
+    key_variables:
+    - 复制保真度
+    - 变异率
+    - 选择压力
+    - 适应度（传播/采用收益）
+    - 群体规模与结构
+    dynamics: 当复制渠道更顺畅或适应度更高时，某一变体扩散；变异不断产生新方案；选择机制（成本、规范、兼容性、注意力）淘汰不适配者，最终形成阶段性“优势变体”。
+  - id: meme_lifecycle_assimilate_retain_express_transmit
+    name: 模因生命周期（同化—保留—表达—传播）
+    description: 一个文化单位从被个体接受开始，需被记住并可被外显表达，才能借助媒介传播到更多个体，形成可持续扩散。
+    key_variables:
+    - 同化门槛（学习成本）
+    - 保留强度（记忆/锁定）
+    - 表达成本（实施/展示成本）
+    - 传播渠道效率
+    - 反馈速度
+    dynamics: 低同化门槛与低表达成本提高进入率；高保留强度提升持续使用；传播渠道越标准化、反馈越快，扩散越呈加速增长；任一环节阻塞都会使扩散中断。
+  - id: horizontal_transfer_and_recombination
+    name: 水平转移与重组创新
+    description: 文化特征可跨群体直接迁移，并与本地既有特征重组，产生非线性创新，而非只靠线性“世代继承”。
+    key_variables:
+    - 群体间连通度
+    - 兼容性/可组合性
+    - 模块化程度
+    - 吸收能力（理解与改造能力）
+    - 许可/规范约束
+    dynamics: 高连通度与高模块化促进外来要素进入；兼容性越强，重组成本越低；重组产生的新组合若在本地环境适配度高，会快速扩散并反向影响其他群体。
+  - id: attention_bottleneck_and_competition
+    name: 注意力瓶颈下的竞争与胜者偏置
+    description: 在有限注意力与资源约束下，不同信息单元竞争传播位点，早期优势与可见性会带来正反馈，形成马太效应。
+    key_variables:
+    - 注意力容量
+    - 可见性/展示位点
+    - 社会证明强度（stars/引用/口碑）
+    - 进入时机
+    - 转换成本
+    dynamics: 初始可见性或背书更强者更易被复制；更高采用量进一步提高可见性与信任，导致路径依赖；除非出现显著性能差异或外部冲击，否则领先者地位稳定。
+  - id: genotype_phenotype_duality
+    name: 基因型—表现型二分（核心机制与表层形式）
+    description: 同一“核心机制”可呈现为多种外在形式（基因型→多表现型），也可能出现不同核心机制却产出相似外观结果（多基因型→同表现型）。
+    key_variables:
+    - 核心机制/原则
+    - 表层实现/包装
+    - 可观察性
+    - 可移植性
+    - 评估指标（效果/性能/体验）
+    dynamics: 传播往往优先复制表层形式（更可见），但长期存活依赖核心机制的适配度；当环境变化时，能保留核心并替换表层实现的变体更具韧性与迁移性。
+  target_mappings:
+  - structure: replication_variation_selection_loop
+    target: 开源软件选题与方案在社区中的“复制—变异—选择”演化循环：某类功能/项目主题通过 
+      Fork、模板化、文章与口碑传播被复制扩散；在不同实现、架构与特性组合中产生变异；在用户需求、维护成本、生态兼容性、治理规则与注意力竞争等选择压力下，少数方向被广泛采用并成为阶段性主流。
+    observable: 复制：fork 数、repo 模板/脚手架引用次数、README/博客/社媒提及量、依赖/被依赖数量、release 传播（下载量/镜像拉取）；变异：fork 间 diff/功能分歧度、PR/issue 
+      新特性提案数与多样性、实验分支数量、API 变更频率；选择：stars 增速、活跃贡献者数、issue 关闭率与响应时间、用户留存（活跃安装/下载复购）、采用信号（被纳入发行版/企业使用案例）、兼容性测试通过率、维护成本（未解决
+      issue 积压、bus factor）；群体结构：贡献者网络中心性、核心/外圈贡献比例、跨项目协作边数量；适应度：新增用户/贡献者转化率、生态集成数（插件/适配器）、下游项目数与增长。
+  - structure: meme_lifecycle_assimilate_retain_express_transmit
+    target: 开源项目/技术方案的采纳与扩散生命周期（上手—留存—贡献—传播）
+    observable: 
+      上手门槛：安装与配置步骤数、首次运行时间(TTFX)、文档/教程完备度、依赖数量与复杂度；留存强度：活跃用户留存率、版本升级留存(从旧版迁移比例)、API/配置稳定性(破坏性变更频率)、锁定指标(数据/插件/生态兼容成本)；表达成本：提交PR/Issue平均耗时、贡献指南清晰度、CI通过率与本地复现难度、示例/模板覆盖率、发布演示成本(一键Demo/Playground)；传播渠道效率：包管理器分发覆盖(npm/pypi/crates等)、README与SEO质量、集成到主流框架/平台数量、星标/下载/引用增长率、模板/脚手架可用性；反馈速度：Issue首次响应时间、PR首次review时间、合并周期、发布频率、社区互动频率(讨论/Discord/邮件列表)。
+  - structure: horizontal_transfer_and_recombination
+    target: 开源软件中的跨项目技术/代码/设计模式的水平迁移与模块化重组创新（在许可证与标准约束下，通过依赖复用、API/插件组合、架构拼装等方式形成新功能/新产品，并在生态中扩散回流）
+    observable: 跨仓库依赖与复用指标（package manager 依赖边、SBOM 组件引用数、Docker/Helm/模板复用）；跨项目代码迁移与重组证据（git cherry-pick/rebase 
+      记录、补丁相似度/克隆检测、共同提交者/PR 迁移、fork 后差异合并）；模块化与可组合性（插件/扩展点数量、公共 API 稳定性、模块边界清晰度、组件解耦度、语义化版本遵循率）；群体连通度（共同贡献者网络密度、跨组织 
+      PR/issue 互动频次、生态会议/工作组参与）；吸收能力（外部 PR 接受率与中位合并时长、文档/示例覆盖率、onboarding 时间、review 吞吐）；许可/规范约束（许可证兼容矩阵、依赖许可冲突次数、CLA/DCO
+      启用情况、标准/协议兼容测试通过率）；扩散与反向影响（被下游引用/星标/下载增长、其他项目采纳该组合的时间滞后、上游回馈 PR 数量与比例）
+  - structure: attention_bottleneck_and_competition
+    target: 
+      开源软件选题中的注意力争夺与赢家通吃偏置（在开发者与用户有限注意力/资源下，项目通过首页曝光、榜单与社交背书竞争采用；早期可见性与背书带来正反馈，形成马太效应与路径依赖，使头部项目在缺乏重大性能差异或外部冲击时长期稳固）
+    observable: GitHub/GitLab 等平台的可见性与背书指标及其随时间的增长曲线：stars/forks/watchers、issues/PR 数量与关闭速度、contributors 数与留存、releases 
+      频率；平台展示位点代理：trending/awesome 列表收录、首页推荐/话题标签排名、搜索结果排名；社会证明扩散：被依赖次数（npm/pypi/crates/maven downloads 与 dependents 
+      数）、被引用/被教程与博客提及次数、Hacker News/Reddit/微博等讨论量；进入时机：首次发布/首个 major 版本时间与同类竞品发布时间差；转换成本代理：API 
+      破坏性变更频率、迁移指南/兼容层存在、配置/集成复杂度、与主流生态（框架/IDE/云服务）集成数量；路径依赖特征：早期曝光或背书事件后 stars/下载量的加速度、头部项目长期占据依赖与搜索份额的集中度（如 Gini/HHI）
+  - structure: genotype_phenotype_duality
+    target: 
+      开源项目的“架构/算法/工程原则（核心机制）—UI/框架/语言/功能包装（表层形式）”二分：同一核心能力可通过不同技术栈与产品形态呈现，不同底层实现也可能交付相似用户可见功能；选题应优先聚焦可迁移的核心机制，并允许表层实现随生态变化替换以保持韧性
+    observable: 1) 核心机制代理：架构决策记录(ADR)/设计文档、核心模块复用率、算法/协议独立于框架的比例、API稳定性(破坏性变更频率)；2) 
+      表层形式代理：前端/框架/语言依赖占比、UI/CLI/SDK数量、主题/皮肤/插件数量、平台适配矩阵；3) 适配度与存活：跨版本迁移成本、主要依赖升级响应时间、issue关闭率、发布频率与长期活跃度；4) 
+      表现型效果：基准性能(吞吐/延迟/资源)、用户体验指标(安装成功率/启动时间)、社区采用(Stars/Forks/下载量)、集成数(CI/CD、包管理器、下游项目数)
+- id: 可靠性工程与韧性系统
+  name: 可靠性工程与韧性系统
+  name_en: Reliability Engineering & Resilience
+  description: 
+    可靠性工程与韧性系统领域的核心概念和可迁移结构。爆发式增长常被稳定性、可维护性、可观测性“卡脖子”。可靠性工程提供从故障模式到容量规划的系统模型，可指导“增长即压测”的开源基础设施/工具项目选题（例如自托管、可观测、混沌演练工具）。
+  structures:
+  - id: feedback_control_loop_observability
+    name: 可观测性驱动的反馈控制环
+    description: 通过持续观测系统状态，将偏差转化为行动（修复/改进）并再度验证的闭环机制，用于把不确定性压到可控范围内。
+    key_variables:
+    - 观测信号质量（覆盖度/准确性/时延）
+    - 目标阈值（SLO/错误预算）
+    - 偏差（实际-目标）
+    - 响应延迟（检测-定位-修复时间）
+    - 控制动作强度（回滚/限流/重构投入）
+    dynamics: 
+      观测越及时且可解释，偏差被发现的时间越短；响应延迟越小，系统越不容易跨越失稳阈值。若信号噪声高或反馈滞后，控制会出现过度修复或反复回归，形成振荡。类比到开源选题：用指标（issue响应时间、崩溃率、用户留存等）建立选题闭环，优先做能快速验证与回馈的改动。
+  - id: redundancy_diversity_tradeoff
+    name: 冗余与多样性权衡结构
+    description: 通过增加冗余（备份/替代路径）与多样性（不同实现/不同依赖）降低单点失效概率，但会引入复杂度与协调成本。
+    key_variables:
+    - 冗余度（备份数量/可替代组件数）
+    - 多样性水平（实现差异/依赖差异）
+    - 相关失效概率（共同模式故障）
+    - 协调成本（同步/一致性/维护成本）
+    - 复杂度（集成接口数/配置数）
+    dynamics: 
+      在相关失效低的前提下，冗余与多样性提升韧性；但当复杂度与协调成本超过阈值，新增冗余反而提高失效面（配置错误、不可预期交互），出现边际收益递减甚至反转。类比到开源选题：是否引入第二实现/备用依赖/多后端支持，需要同时评估共同故障（同一生态依赖）与维护复杂度。
+  - id: fault_containment_modularity
+    name: 故障隔离边界（模块化）结构
+    description: 用清晰边界把故障影响限制在局部区域，通过隔离、降级与快速替换来阻断级联扩散。
+    key_variables:
+    - 耦合度（依赖强度/共享状态）
+    - 隔离强度（进程/权限/资源配额/断路器）
+    - 故障传播率（级联概率）
+    - 恢复粒度（可替换/可回滚的最小单元）
+    - 降级能力（可用替代功能比例）
+    dynamics: 
+      耦合越高，故障越容易跨边界传播并放大；隔离强度与恢复粒度越细，越能把故障控制在“可回滚单元”内，实现快速止损与逐步恢复。类比到开源选题：优先做解耦（抽象接口、插件化、清理共享全局状态）、引入断路与降级路径，可显著降低“改一处崩一片”的风险。
+  - id: error_budget_governance
+    name: 错误预算驱动的治理切换
+    description: 用可量化的可靠性预算（允许失败的额度）在“交付新功能”和“稳态改进”之间动态切换资源配置。
+    key_variables:
+    - 错误预算（允许故障次数/不可用时间）
+    - 消耗速率（故障频率/严重度）
+    - 交付吞吐（发布频率/功能产出）
+    - 风险暴露（变更规模/不确定性）
+    - 治理策略（冻结/限速/加测/重构）
+    dynamics: 
+      当预算充足时可提高变更速度；当预算接近耗尽时触发治理切换（发布冻结、提升测试与审查、削减风险变更），以防进入“越出事故越赶工越出事故”的恶性循环。类比到开源选题：用回归率、崩溃率、支持负债等作为“预算”，决定本周期是做新特性还是先还技术债与补测试。
+  - id: adaptive_capacity_learning_loop
+    name: 适应能力与学习回路
+    description: 通过事故复盘、知识沉淀与流程/架构调整，提升系统对未来扰动的适应能力，形成“事件→学习→能力提升”的长期回路。
+    key_variables:
+    - 事件输入（故障/用户反馈/安全事件）
+    - 学习效率（复盘质量/知识可复用度）
+    - 改进转化率（从结论到落地变更的比例）
+    - 组织记忆（文档/自动化/标准化程度）
+    - 扰动环境变化率（需求/依赖/攻击面变化）
+    dynamics: 
+      高学习效率与高转化率会让系统在相似扰动下更快定位与恢复，并减少重复事故；若组织记忆低或环境变化快于学习速度，则能力提升跟不上扰动，系统表现为“反复踩坑”。类比到开源选题：将issue与事故复盘沉淀为测试用例、lint规则、模板与自动化脚本，把一次性修复变成可复用能力。
+  target_mappings:
+  - structure: feedback_control_loop_observability
+    target: 指标驱动的开源开发选题闭环（基于可观测性发现偏差→实施改动→验证效果→迭代），用于持续降低质量/体验/维护成本等不确定性并稳定达成项目SLO
+    observable: Issue/PR 处理与质量指标（首次响应时间、关闭周期、积压量、重开率、回归缺陷数、崩溃率/错误率、CI 
+      失败率、测试覆盖率、发布频率与回滚率、性能基准变化、SLO/错误预算消耗）；用户与采用指标（安装/下载、活跃用户、留存、弃用/卸载、文档访问与搜索失败率、支持渠道提问量）；维护与贡献指标（贡献者数量与流失率、代码审查时延、模块复杂度/技术债、依赖漏洞告警数与修复时长）
+  - structure: redundancy_diversity_tradeoff
+    target: 开源项目在架构/依赖/实现层面的冗余与多样性策略选题（是否引入第二实现、备用依赖、多后端/多运行时支持）以提升韧性与可用性，并权衡由此带来的维护复杂度与协同成本
+    observable: 冗余与多样性：可替代实现/后端数量、支持的平台/运行时/存储/消息队列种类、关键依赖的备选库数量与切换机制（feature 
+      flag/adapter）；共同失效风险：关键依赖集中度（对单一生态/供应商的依赖比例）、共享依赖重合率、单点组件数量（SPOF清单）；协调成本：维护者/核心贡献者数量与忙闲比、PR/Issue中与兼容/多实现相关的占比、平均合并/关闭时间、发布频率与回归修复次数；复杂度：代码库规模、模块/接口数量、条件编译或插件/适配器层数量、配置项数量、CI矩阵维度（平台×版本×后端）、测试用例数与端到端测试覆盖；收益/代价结果：故障恢复时间（MTTR）、可用性/崩溃率、因配置/集成导致的缺陷比例、跨后端一致性缺陷数量、用户采用率与留存
+  - structure: fault_containment_modularity
+    target: 开源项目的故障隔离与可替换模块化架构（通过清晰边界、解耦、断路/降级与细粒度回滚单元，降低改动引发级联故障的风险并提升可维护性与可恢复性）
+    observable: 
+      模块/包依赖图指标（扇入扇出、循环依赖数、跨模块调用比例）；共享全局状态数量与可变单例占比；接口稳定性与兼容性（公开API变更频率、破坏性变更占比）；隔离机制覆盖（插件化点数量、进程/容器隔离比例、权限与资源配额配置项、断路器/超时/重试/舱壁策略存在与默认启用情况）；故障传播代理（一次故障导致的受影响模块数、生产事故/issue的级联标签或关联模块数）；恢复粒度（可独立发布/回滚的组件数量、回滚平均耗时MTTR、热修复/特性开关覆盖率）；降级能力（降级路径数、可用替代功能比例、失败注入/混沌测试下SLO保持率）；测试与发布隔离（模块级测试覆盖率、契约测试数量、灰度/分阶段发布支持）
+  - structure: error_budget_governance
+    target: 回归/稳定性预算驱动的开源项目治理切换（用“允许的质量事故额度”在新功能开发与稳定性/技术债偿还之间动态分配维护资源）
+    observable: 
+      回归预算：每发布周期允许的回归缺陷数、崩溃率/崩溃次数、关键功能不可用时间；消耗速率：新开严重Bug(Sev1/Sev2)/周、回归缺陷占比、CI失败率、flaky测试比例；交付吞吐：release频率、合并PR数/周期、feature完成数、变更lead
+      time；风险暴露：PR规模(LoC/文件数)、触及核心模块比例、依赖升级幅度、未审查合并比例；治理策略触发信号与动作：进入feature-freeze、提高review门槛(必需维护者批准数)、提升测试覆盖/新增回归用例数、启用更严格CI门禁、限制高风险标签PR合并、安排重构/技术债Sprint；支持负债：未回复issue/PR数量、平均响应时间、重复问题比例
+  - structure: adaptive_capacity_learning_loop
+    target: 开源项目的持续学习与韧性提升回路（将缺陷/反馈/安全事件转化为可复用工程能力的机制，如测试用例、回归基准、自动化检查与最佳实践沉淀，以减少重复问题并提升适应变化的能力）
+    observable: 
+      复盘与知识沉淀产出：postmortem/ADR/设计复盘文档数量与覆盖率、issue/PR模板完善度、知识库/FAQ更新频次；学习效率：从事件发生到根因定位/复盘完成的中位时长、复盘结论的可复用条目占比；改进转化率：复盘行动项关闭率、行动项平均落地周期、由事件触发新增/更新的测试用例与回归用例数量、静态检查规则/CI门禁新增数、自动化脚本/工具新增数；组织记忆强度：测试覆盖率与回归集规模、CI稳定性（失败率/噪声率）、文档新鲜度（过期页面占比）、自动化发布与依赖更新配置（如Release流程、Renovate/Dependabot）采用度；适应结果指标：重复缺陷率（相同根因issue再现率）、MTTR/MTTD变化趋势、回归缺陷占比、类似安全漏洞复现率；扰动环境变化率代理：依赖更新频率、API/需求变更频率、CVE通告数量、外部集成/平台版本变更次数
