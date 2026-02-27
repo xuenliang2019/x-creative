@@ -370,7 +370,8 @@ class TestBISOModule:
             )
 
             # Should have results from successful domains
-            assert call_count == 3
+            # 3 domain calls + 1 dedup call = 4 total
+            assert call_count == 4
             # 2 successful domains should produce hypotheses
             assert len(hypotheses) == 2
 
@@ -492,6 +493,145 @@ class TestBISOModule:
             )
             call_kwargs = mock_router.complete.call_args.kwargs
             assert "model_override" not in call_kwargs
+
+    @pytest.mark.asyncio
+    async def test_deduplicate_removes_semantic_duplicates(
+        self, sample_domain: Domain, sample_problem: ProblemFrame
+    ) -> None:
+        """Dedup should remove hypotheses identified as duplicates by LLM."""
+        from x_creative.creativity.biso import BISOModule
+
+        biso = BISOModule()
+        biso._biso_dedup_enabled = True
+
+        h1 = Hypothesis(
+            id="h1", description="Idea A", source_domain="d1",
+            source_structure="s1", analogy_explanation="", observable="obs_a",
+        )
+        h2 = Hypothesis(
+            id="h2", description="Idea B (unique)", source_domain="d2",
+            source_structure="s2", analogy_explanation="", observable="obs_b",
+        )
+        h3 = Hypothesis(
+            id="h3", description="Idea A rephrased", source_domain="d3",
+            source_structure="s3", analogy_explanation="", observable="obs_a_v2",
+        )
+
+        dedup_response = json.dumps({
+            "duplicate_groups": [[0, 2]],
+            "reasoning": "h1 and h3 express the same core idea",
+        })
+
+        with patch.object(biso, "_router") as mock_router:
+            mock_router.complete = AsyncMock(
+                return_value=MagicMock(content=dedup_response)
+            )
+            result = await biso._deduplicate_hypotheses([h1, h2, h3])
+
+        assert len(result) == 2
+        assert result[0].id == "h1"
+        assert result[1].id == "h2"
+
+    @pytest.mark.asyncio
+    async def test_deduplicate_preserves_all_when_unique(
+        self, sample_domain: Domain, sample_problem: ProblemFrame
+    ) -> None:
+        """When LLM says no duplicates, all hypotheses are kept."""
+        from x_creative.creativity.biso import BISOModule
+
+        biso = BISOModule()
+        biso._biso_dedup_enabled = True
+
+        h1 = Hypothesis(
+            id="h1", description="Idea A", source_domain="d1",
+            source_structure="s1", analogy_explanation="", observable="obs_a",
+        )
+        h2 = Hypothesis(
+            id="h2", description="Idea B", source_domain="d2",
+            source_structure="s2", analogy_explanation="", observable="obs_b",
+        )
+
+        dedup_response = json.dumps({
+            "duplicate_groups": [],
+            "reasoning": "All hypotheses are semantically distinct.",
+        })
+
+        with patch.object(biso, "_router") as mock_router:
+            mock_router.complete = AsyncMock(
+                return_value=MagicMock(content=dedup_response)
+            )
+            result = await biso._deduplicate_hypotheses([h1, h2])
+
+        assert len(result) == 2
+
+    @pytest.mark.asyncio
+    async def test_deduplicate_disabled_skips_llm_call(self) -> None:
+        """When biso_dedup_enabled is False, no LLM call is made."""
+        from x_creative.creativity.biso import BISOModule
+
+        biso = BISOModule()
+        biso._biso_dedup_enabled = False
+
+        h1 = Hypothesis(
+            id="h1", description="Idea A", source_domain="d1",
+            source_structure="s1", analogy_explanation="", observable="obs_a",
+        )
+        h2 = Hypothesis(
+            id="h2", description="Idea B", source_domain="d2",
+            source_structure="s2", analogy_explanation="", observable="obs_b",
+        )
+
+        with patch.object(biso, "_router") as mock_router:
+            mock_router.complete = AsyncMock()
+            result = await biso._deduplicate_hypotheses([h1, h2])
+
+        assert len(result) == 2
+        mock_router.complete.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_deduplicate_graceful_on_llm_failure(self) -> None:
+        """When LLM call fails, return original list unchanged."""
+        from x_creative.creativity.biso import BISOModule
+
+        biso = BISOModule()
+        biso._biso_dedup_enabled = True
+
+        h1 = Hypothesis(
+            id="h1", description="Idea A", source_domain="d1",
+            source_structure="s1", analogy_explanation="", observable="obs_a",
+        )
+        h2 = Hypothesis(
+            id="h2", description="Idea B", source_domain="d2",
+            source_structure="s2", analogy_explanation="", observable="obs_b",
+        )
+
+        with patch.object(biso, "_router") as mock_router:
+            mock_router.complete = AsyncMock(side_effect=RuntimeError("LLM failed"))
+            result = await biso._deduplicate_hypotheses([h1, h2])
+
+        assert len(result) == 2
+        assert result[0].id == "h1"
+        assert result[1].id == "h2"
+
+    @pytest.mark.asyncio
+    async def test_deduplicate_skips_single_hypothesis(self) -> None:
+        """Single hypothesis should skip dedup entirely."""
+        from x_creative.creativity.biso import BISOModule
+
+        biso = BISOModule()
+        biso._biso_dedup_enabled = True
+
+        h1 = Hypothesis(
+            id="h1", description="Idea A", source_domain="d1",
+            source_structure="s1", analogy_explanation="", observable="obs_a",
+        )
+
+        with patch.object(biso, "_router") as mock_router:
+            mock_router.complete = AsyncMock()
+            result = await biso._deduplicate_hypotheses([h1])
+
+        assert len(result) == 1
+        mock_router.complete.assert_not_called()
 
 
 class TestSearchModule:

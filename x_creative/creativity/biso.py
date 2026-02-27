@@ -13,7 +13,7 @@ import structlog
 from x_creative.core.domain_loader import DomainLibrary
 from x_creative.core.types import Domain, FailureMode, Hypothesis, MappingItem, ProblemFrame
 from x_creative.config.settings import get_settings
-from x_creative.creativity.prompts import BISO_ANALOGY_PROMPT
+from x_creative.creativity.prompts import BISO_ANALOGY_PROMPT, BISO_DEDUP_PROMPT
 from x_creative.creativity.utils import safe_json_loads
 from x_creative.llm.router import ModelRouter
 
@@ -50,6 +50,7 @@ class BISOModule:
         except Exception:
             self._default_max_concurrency = 8
         self._biso_pool: list[str] = list(settings.biso_pool)
+        self._biso_dedup_enabled: bool = settings.biso_dedup_enabled
 
     def _get_domains(self, target_domain: str | None = None) -> DomainLibrary:
         """Get domain library, preferring target-domain-specific source domains.
@@ -250,6 +251,75 @@ class BISOModule:
 
         return hypotheses
 
+    async def _deduplicate_hypotheses(
+        self, hypotheses: list[Hypothesis]
+    ) -> list[Hypothesis]:
+        """Remove semantically duplicate hypotheses using LLM judgment.
+
+        Args:
+            hypotheses: List of hypotheses to deduplicate.
+
+        Returns:
+            Deduplicated list (order preserved, first in each group kept).
+        """
+        if not self._biso_dedup_enabled or len(hypotheses) <= 1:
+            return hypotheses
+
+        # Build summary text for LLM
+        lines: list[str] = []
+        for i, h in enumerate(hypotheses):
+            lines.append(f"[{i}] {h.description} | Observable: {h.observable}")
+        hypotheses_text = "\n".join(lines)
+
+        prompt = BISO_DEDUP_PROMPT.format(hypotheses_text=hypotheses_text)
+
+        try:
+            result = await self._router.complete(
+                task="knowledge_extraction",
+                messages=[{"role": "user", "content": prompt}],
+            )
+
+            # Parse duplicate groups from response
+            json_str = result.content
+            json_start = json_str.find("{")
+            json_end = json_str.rfind("}") + 1
+            if json_start >= 0 and json_end > json_start:
+                data = json.loads(json_str[json_start:json_end])
+            else:
+                data = json.loads(json_str)
+
+            duplicate_groups: list[list[int]] = data.get("duplicate_groups", [])
+
+            # Collect indices to remove (all except first in each group)
+            remove_indices: set[int] = set()
+            for group in duplicate_groups:
+                if not isinstance(group, list) or len(group) < 2:
+                    continue
+                valid = [idx for idx in group if isinstance(idx, int) and 0 <= idx < len(hypotheses)]
+                if len(valid) >= 2:
+                    for idx in valid[1:]:
+                        remove_indices.add(idx)
+
+            deduplicated = [h for i, h in enumerate(hypotheses) if i not in remove_indices]
+
+            logger.info(
+                "biso_dedup_complete",
+                original_count=len(hypotheses),
+                deduplicated_count=len(deduplicated),
+                removed_count=len(hypotheses) - len(deduplicated),
+                num_groups=len(duplicate_groups),
+            )
+
+            return deduplicated
+
+        except Exception as e:
+            logger.warning(
+                "biso_dedup_failed",
+                error=str(e),
+                hypothesis_count=len(hypotheses),
+            )
+            return hypotheses
+
     async def generate_all_analogies(
         self,
         problem: ProblemFrame,
@@ -360,6 +430,9 @@ class BISOModule:
         all_hypotheses: list[Hypothesis] = []
         for hypotheses in results:
             all_hypotheses.extend(hypotheses)
+
+        # Semantic deduplication
+        all_hypotheses = await self._deduplicate_hypotheses(all_hypotheses)
 
         logger.info(
             "Completed analogy generation",
