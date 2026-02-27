@@ -647,6 +647,11 @@ openrouter:
 #   - "deepseek/deepseek-r1"
 #   - "deepseek/deepseek-chat-v3-0324"
 
+# BISO semantic deduplication (default: true)
+# When enabled, uses LLM to identify and discard semantically duplicate
+# hypotheses after BISO generation, before entering SEARCH stage.
+# biso_dedup_enabled: true
+
 # Score weights (must sum to 1.0)
 # score_weight_divergence: 0.21
 # score_weight_testability: 0.26
