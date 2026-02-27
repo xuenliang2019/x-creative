@@ -633,6 +633,56 @@ class TestBISOModule:
         assert len(result) == 1
         mock_router.complete.assert_not_called()
 
+    @pytest.mark.asyncio
+    async def test_generate_all_analogies_calls_dedup(
+        self, sample_domain: Domain, sample_problem: ProblemFrame
+    ) -> None:
+        """generate_all_analogies should call _deduplicate_hypotheses on results."""
+        from x_creative.creativity.biso import BISOModule
+
+        biso = BISOModule()
+
+        valid_response = json.dumps([{
+            "analogy": "Test analogy",
+            "structure_id": "test_structure",
+            "explanation": "Mapping explanation",
+            "observable": "Test observable",
+            "mapping_table": [{
+                "source_concept": "A",
+                "target_concept": "B",
+                "source_relation": "R1",
+                "target_relation": "R2",
+                "mapping_type": "relation",
+                "systematicity_group_id": "g1",
+            }],
+            "failure_modes": [{
+                "scenario": "When X",
+                "why_breaks": "Because Y",
+                "detectable_signal": "Signal Z",
+            }],
+        }])
+
+        domains = [
+            sample_domain.model_copy(update={"id": "d1"}),
+            sample_domain.model_copy(update={"id": "d2"}),
+        ]
+
+        with patch.object(biso, "_router") as mock_router:
+            mock_router.complete = AsyncMock(
+                return_value=MagicMock(content=valid_response)
+            )
+            with patch.object(
+                biso, "_deduplicate_hypotheses", wraps=biso._deduplicate_hypotheses
+            ) as mock_dedup:
+                await biso.generate_all_analogies(
+                    problem=sample_problem,
+                    source_domains=domains,
+                )
+                mock_dedup.assert_called_once()
+                # The argument should be a list of hypotheses from both domains
+                call_args = mock_dedup.call_args[0][0]
+                assert len(call_args) == 2
+
 
 class TestSearchModule:
     """Tests for the SEARCH (Graph of Thoughts) module."""
