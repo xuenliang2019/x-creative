@@ -526,3 +526,69 @@ class TestPipelineStageError:
 
         err = PipelineStageError("sources", "No source domains")
         assert err.context == {}
+
+
+class TestStageGate:
+    @pytest.mark.asyncio
+    async def test_stage_gate_raises_on_critical_empty_list(self):
+        from x_creative.answer.engine import AnswerEngine
+        from x_creative.answer.types import PipelineStageError
+
+        engine = AnswerEngine()
+        with pytest.raises(PipelineStageError, match="sources") as exc_info:
+            await engine._stage_gate(
+                "sources", [], critical=True,
+                reason="No source domains selected",
+                context={"count": 0},
+            )
+        assert exc_info.value.stage == "sources"
+        assert exc_info.value.context == {"count": 0}
+
+    @pytest.mark.asyncio
+    async def test_stage_gate_raises_on_critical_none(self):
+        from x_creative.answer.engine import AnswerEngine
+        from x_creative.answer.types import PipelineStageError
+
+        engine = AnswerEngine()
+        with pytest.raises(PipelineStageError):
+            await engine._stage_gate("generation", None, critical=True)
+
+    @pytest.mark.asyncio
+    async def test_stage_gate_warns_on_non_critical_empty(self):
+        from x_creative.answer.engine import AnswerEngine
+
+        engine = AnswerEngine()
+        # Should NOT raise
+        await engine._stage_gate(
+            "optional_stage", [], critical=False,
+            reason="Optional stage empty",
+        )
+
+    @pytest.mark.asyncio
+    async def test_stage_gate_passes_non_empty(self):
+        from x_creative.answer.engine import AnswerEngine
+
+        engine = AnswerEngine()
+        # Should NOT raise
+        await engine._stage_gate("sources", [1, 2, 3], critical=True)
+
+    @pytest.mark.asyncio
+    async def test_stage_gate_emits_progress_event(self):
+        from x_creative.answer.engine import AnswerEngine
+        from x_creative.answer.types import PipelineStageError
+
+        captured = []
+
+        async def capture_cb(event, payload):
+            captured.append((event, payload))
+
+        engine = AnswerEngine()
+        with pytest.raises(PipelineStageError):
+            await engine._stage_gate(
+                "generation", [], critical=True,
+                reason="BISO produced 0 hypotheses",
+                progress_callback=capture_cb,
+            )
+        assert any(ev == "stage_failed" for ev, _ in captured)
+        failed_payload = next(p for ev, p in captured if ev == "stage_failed")
+        assert failed_payload["stage"] == "generation"

@@ -20,7 +20,7 @@ from x_creative.answer.pack_builder import AnswerPackBuilder
 from x_creative.answer.problem_frame import ProblemFrameBuilder
 from x_creative.answer.source_selector import SourceDomainSelector
 from x_creative.answer.target_resolver import TargetDomainResolver
-from x_creative.answer.types import AnswerConfig, AnswerPack
+from x_creative.answer.types import AnswerConfig, AnswerPack, PipelineStageError
 from x_creative.answer.constraint_preflight import preflight_user_constraints
 from x_creative.config.settings import get_settings
 from x_creative.core.types import ConstraintSpec, ProblemFrame
@@ -111,6 +111,7 @@ class AnswerEngine:
         )
         with contextvars.bound_contextvars(pipeline_stage="target"):
             target_plugin = await resolver.resolve(problem_frame, cfg.target_domain, fresh=cfg.fresh)
+        problem_frame.target_domain = target_plugin.id
         cp2 = self._cp2_target_domain_audit(problem_frame, target_plugin)
         self._save_stage("biso", {
             "target_resolved": {
@@ -213,6 +214,7 @@ class AnswerEngine:
                 source_domains=source_domains,
                 initial_directives=checkpoint_directives,
                 progress_callback=progress_callback,
+                target_plugin=target_plugin,
             )
             hypotheses = saga_result.hypotheses
             saga_directives.extend(list(saga_result.intervention_log))
@@ -256,6 +258,7 @@ class AnswerEngine:
                     )
                     solve_state = SharedCognitionState(
                         target_domain_id=problem_frame.target_domain,
+                        target_plugin=target_plugin,
                         current_stage="solve",
                         hypotheses_pool=[
                             h.model_dump() for h in verified_above[:cfg.max_ideas]
@@ -367,6 +370,43 @@ class AnswerEngine:
                 await maybe
         except Exception as exc:
             logger.debug("progress_callback_failed: %s", exc)
+
+    async def _stage_gate(
+        self,
+        stage: str,
+        result: Any,
+        *,
+        critical: bool = True,
+        reason: str = "",
+        context: dict[str, Any] | None = None,
+        progress_callback: ProgressCallback | None = None,
+    ) -> None:
+        """Validate that a pipeline stage produced non-empty output.
+
+        Args:
+            stage: Stage identifier (e.g. "sources", "generation").
+            result: The stage output to check.
+            critical: If True, raise on empty; if False, log warning only.
+            reason: Human-readable failure description.
+            context: Diagnostic data included in exception and progress event.
+            progress_callback: Optional callback to emit stage_failed event.
+        """
+        is_empty = result is None or (isinstance(result, (list, dict)) and len(result) == 0)
+        if not is_empty:
+            return
+
+        msg = reason or f"Stage '{stage}' produced no output"
+        ctx = context or {}
+
+        if critical:
+            logger.error("pipeline_stage_failed: stage=%s reason=%s context=%s", stage, msg, ctx)
+            await self._report_progress(
+                progress_callback, "stage_failed",
+                {"stage": stage, "reason": msg, **ctx},
+            )
+            raise PipelineStageError(stage, msg, ctx)
+        else:
+            logger.warning("pipeline_stage_warning: stage=%s reason=%s context=%s", stage, msg, ctx)
 
     def _save_stage(self, stage: str, data: Any) -> None:
         if self._session:
