@@ -7,7 +7,11 @@ These Pydantic models are referenced by all other SAGA modules:
 - SharedCognitionState: Shared state between Fast and Slow Agents
 """
 
+from __future__ import annotations
+
 from pydantic import BaseModel, Field
+
+from x_creative.core.plugin import TargetDomainPlugin
 
 import structlog
 
@@ -168,6 +172,10 @@ class SharedCognitionState(BaseModel):
     target_domain_id: str | None = Field(
         default=None,
         description="Target domain plugin ID (loaded from plugin.py)",
+    )
+    target_plugin: TargetDomainPlugin | None = Field(
+        default=None,
+        description="Resolved target domain plugin (for fresh/ephemeral domains not in YAML)",
     )
     historical_hypothesis_hashes: set[str] = Field(
         default_factory=set,

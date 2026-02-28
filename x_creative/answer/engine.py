@@ -121,6 +121,14 @@ class AnswerEngine:
             },
             "cp2_target_domain_audit": cp2,
         })
+        # Detailed target domain logging
+        target_constraint_count = len(target_plugin.get_critical_constraints()) if hasattr(target_plugin, "get_critical_constraints") else 0
+        resolution_path = "fresh" if cfg.fresh else ("exact_match" if (problem_frame.domain_hint or {}).get("confidence", 0) >= 0.7 else "llm_resolved")
+        logger.info(
+            "target_domain_resolved: id=%s name=%s description=%s constraints=%d resolution=%s",
+            target_plugin.id, target_plugin.name, target_plugin.description,
+            target_constraint_count, resolution_path,
+        )
         await self._report_progress(
             progress_callback,
             "answer_stage_completed",
@@ -129,6 +137,10 @@ class AnswerEngine:
                 "stage_index": 2,
                 "stage_total": stage_total,
                 "target_domain_id": target_plugin.id,
+                "target_domain_name": getattr(target_plugin, "name", ""),
+                "target_domain_description": getattr(target_plugin, "description", ""),
+                "target_constraint_count": target_constraint_count,
+                "target_resolution_path": resolution_path,
             },
         )
 
@@ -184,6 +196,22 @@ class AnswerEngine:
             "cp3_source_bias_audit": cp3,
             "checkpoint_directives": checkpoint_directives,
         })
+        # Detailed source domain logging
+        source_ids = [d.id for d in source_domains]
+        logger.info(
+            "source_domains_selected: count=%d ids=%s unique=%d entropy=%.3f bias_flags=%s",
+            len(source_domains), source_ids,
+            cp3.get("unique_count", 0),
+            cp3.get("normalized_entropy", 0.0),
+            cp3.get("bias_flags", []),
+        )
+        if cp3.get("bias_flags"):
+            logger.warning(
+                "source_domain_bias_detected: flags=%s dominant=%s dominant_ratio=%.3f",
+                cp3["bias_flags"],
+                cp3.get("dominant_domain", ""),
+                cp3.get("dominant_ratio", 0.0),
+            )
         await self._report_progress(
             progress_callback,
             "answer_stage_completed",
@@ -192,6 +220,10 @@ class AnswerEngine:
                 "stage_index": 3,
                 "stage_total": stage_total,
                 "source_domain_count": len(source_domains),
+                "source_domain_ids": source_ids,
+                "source_unique_count": cp3.get("unique_count", 0),
+                "source_normalized_entropy": cp3.get("normalized_entropy", 0.0),
+                "source_bias_flags": cp3.get("bias_flags", []),
             },
         )
 

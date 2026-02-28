@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 import structlog
 
 from x_creative.config.settings import get_settings
+from x_creative.core.plugin import TargetDomainPlugin
 from x_creative.core.types import Domain, Hypothesis, ProblemFrame, SearchConfig
 from x_creative.creativity.engine import CreativityEngine
 from x_creative.saga.budget import CognitiveBudget
@@ -141,6 +142,7 @@ class SAGACoordinator:
         source_domains: list[Domain] | None = None,
         initial_directives: list[dict[str, Any]] | None = None,
         progress_callback: ProgressCallback | None = None,
+        target_plugin: TargetDomainPlugin | None = None,
     ) -> SAGAResult:
         """Execute a SAGA-driven creative generation.
 
@@ -165,7 +167,10 @@ class SAGACoordinator:
         )
 
         # 1. Initialize shared state
-        state = SharedCognitionState(target_domain_id=problem.target_domain)
+        state = SharedCognitionState(
+            target_domain_id=problem.target_domain,
+            target_plugin=target_plugin,
+        )
 
         # 2. Initialize event bus (with optional persistence)
         event_bus = EventBus(

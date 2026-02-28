@@ -816,3 +816,113 @@ async def test_critical_constraint_heuristic_runs_without_router() -> None:
         constraints,
     )
     assert "critical:onboarding_friction" in violations
+
+
+@pytest.mark.asyncio
+async def test_auditor_uses_target_plugin_over_load() -> None:
+    """When state.target_plugin is set, auditor uses its constraints (not load_target_domain)."""
+    from x_creative.core.plugin import DomainConstraint, TargetDomainPlugin
+
+    finance_plugin = TargetDomainPlugin(
+        id="a_share_finance",
+        name="A股金融研究",
+        description="Chinese A-share financial research",
+        constraints=[
+            DomainConstraint(
+                name="no_insider_trading",
+                description="Must not use insider or non-public information",
+                severity="critical",
+            ),
+        ],
+        anti_patterns=["blindly chasing hot sectors"],
+        stale_ideas=[],
+    )
+    auditor = DomainConstraintAuditor(router=None)
+    state = SharedCognitionState(
+        target_domain_id="a_share_finance",
+        target_plugin=finance_plugin,
+        hypotheses_pool=[
+            {
+                "id": "h1",
+                "description": "Use insider non-public information for alpha",
+                "observable": "alpha_score",
+                "analogy_explanation": "insider edge",
+            }
+        ],
+    )
+    directives = await auditor.audit(
+        FastAgentEvent(event_type=EventType.VERIFY_COMPLETED, stage="verify"),
+        [],
+        state,
+    )
+    flagged = [d for d in directives if d.directive_type == DirectiveType.FLAG_HYPOTHESIS]
+    assert flagged
+    violations = flagged[0].payload.get("violations", [])
+    # Should find heuristic critical constraint violation from the plugin
+    assert any("no_insider_trading" in str(v) for v in violations)
+
+
+@pytest.mark.asyncio
+async def test_auditor_falls_back_to_load_target_domain() -> None:
+    """When state.target_plugin is None, auditor falls back to load_target_domain()."""
+    auditor = DomainConstraintAuditor(router=None)
+    state = SharedCognitionState(
+        target_domain_id="open_source_development",
+        target_plugin=None,
+        hypotheses_pool=[
+            {
+                "id": "h1",
+                "description": "Use future returns for look-ahead prediction",
+                "observable": "future_ret",
+                "analogy_explanation": "forward-looking",
+            }
+        ],
+    )
+    directives = await auditor.audit(
+        FastAgentEvent(event_type=EventType.VERIFY_COMPLETED, stage="verify"),
+        [],
+        state,
+    )
+    assert any(d.directive_type == DirectiveType.FLAG_HYPOTHESIS for d in directives)
+
+
+@pytest.mark.asyncio
+async def test_auditor_fresh_domain_no_false_rejections() -> None:
+    """With a fresh finance plugin, finance hypotheses are NOT flagged for os_license_compliance."""
+    from x_creative.core.plugin import DomainConstraint, TargetDomainPlugin
+
+    finance_plugin = TargetDomainPlugin(
+        id="fresh_finance_domain",
+        name="A股量化",
+        description="Chinese A-share quantitative finance",
+        constraints=[
+            DomainConstraint(
+                name="no_lookahead_bias",
+                description="Must not use future data that would not be available at decision time",
+                severity="critical",
+            ),
+        ],
+        anti_patterns=[],
+        stale_ideas=[],
+    )
+    auditor = DomainConstraintAuditor(router=None)
+    state = SharedCognitionState(
+        target_domain_id="fresh_finance_domain",
+        target_plugin=finance_plugin,
+        hypotheses_pool=[
+            {
+                "id": "h_finance",
+                "description": "利用行业轮动和动量因子构建多因子选股模型",
+                "observable": "sector_rotation_score",
+                "analogy_explanation": "momentum-based sector rotation strategy",
+            }
+        ],
+    )
+    directives = await auditor.audit(
+        FastAgentEvent(event_type=EventType.VERIFY_COMPLETED, stage="verify"),
+        [],
+        state,
+    )
+    # Should NOT be flagged — no os_license_compliance violation possible
+    flagged = [d for d in directives if d.directive_type == DirectiveType.FLAG_HYPOTHESIS]
+    assert not flagged

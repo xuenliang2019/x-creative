@@ -148,6 +148,17 @@ class TestSettings:
         assert settings.pareto_gamma == 2.0
 
 
+class TestProblemFrame:
+    """Tests for ProblemFrame defaults."""
+
+    def test_problem_frame_default_target_domain_is_resolvable(self) -> None:
+        """Default target_domain must point to a built-in plugin so callers work without specifying one."""
+        from x_creative.core.types import ProblemFrame
+
+        frame = ProblemFrame(description="test question")
+        assert frame.target_domain == "open_source_development"
+
+
 class TestDomainLoader:
     """Tests for domain loading functionality."""
 

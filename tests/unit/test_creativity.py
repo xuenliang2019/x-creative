@@ -53,6 +53,7 @@ class TestBISOModule:
         """Create a sample problem frame."""
         return ProblemFrame(
             description="设计一个能实现病毒式传播的开源命令行工具",
+            target_domain="open_source_development",
         )
 
     def test_biso_module_creation(self) -> None:
@@ -1289,6 +1290,7 @@ class TestCreativityEngine:
         """Create a sample problem frame."""
         return ProblemFrame(
             description="设计一个能实现病毒式传播的开源命令行工具",
+            target_domain="open_source_development",
         )
 
     def test_engine_creation(self) -> None:

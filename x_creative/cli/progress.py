@@ -41,6 +41,15 @@ _STAGE_INDEX: dict[str, int] = {
 
 @dataclass
 class _Counters:
+    # Target domain
+    target_domain_id: str | None = None
+    target_domain_name: str | None = None
+
+    # Source domains
+    source_domain_count: int | None = None
+    source_domain_ids: list[str] | None = None
+    source_bias_flags: list[str] | None = None
+
     # BISO
     biso_total_domains: int | None = None
     biso_completed_domains: int = 0
@@ -173,6 +182,14 @@ class AnswerProgress:
             if stage:
                 self._set_stage(stage)
             if event == "answer_stage_completed":
+                # Capture enriched target/source domain details.
+                if stage == "target":
+                    self._c.target_domain_id = payload.get("target_domain_id") or None
+                    self._c.target_domain_name = payload.get("target_domain_name") or None
+                elif stage == "sources":
+                    self._c.source_domain_count = payload.get("source_domain_count")
+                    self._c.source_domain_ids = payload.get("source_domain_ids")
+                    self._c.source_bias_flags = payload.get("source_bias_flags")
                 # Treat pre-SAGA stages as instantly completed.
                 self._stage_progress = 1.0
             else:
@@ -408,8 +425,17 @@ class AnswerProgress:
         if stage == "problem":
             return "frame"
         if stage == "target":
+            c = self._c
+            if c.target_domain_name:
+                return f"{c.target_domain_name} ({c.target_domain_id})"
             return "resolve domain"
         if stage == "sources":
+            c = self._c
+            if c.source_domain_count is not None:
+                parts = [f"{c.source_domain_count} domains"]
+                if c.source_bias_flags:
+                    parts.append(f"bias: {', '.join(c.source_bias_flags)}")
+                return " | ".join(parts)
             return "select domains"
         if stage == "finalize":
             return "pack output"

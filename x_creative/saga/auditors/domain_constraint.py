@@ -111,14 +111,16 @@ class DomainConstraintAuditor(BaseAuditor):
         self,
         hypothesis_text: str,
         target_domain_id: str | None,
+        target_plugin: Any = None,
     ) -> list[str]:
         """Collect anti-pattern / stale-idea violations from target plugin."""
-        if not target_domain_id:
-            return []
-
-        plugin = load_target_domain(target_domain_id)
+        plugin = target_plugin
         if plugin is None:
-            return []
+            if not target_domain_id:
+                return []
+            plugin = load_target_domain(target_domain_id)
+            if plugin is None:
+                return []
 
         normalized_text = self._normalize_text(hypothesis_text)
         violations: list[str] = []
@@ -241,7 +243,9 @@ class DomainConstraintAuditor(BaseAuditor):
 
         # Load plugin critical constraints
         critical_constraints = []
-        if state.target_domain_id:
+        if state.target_plugin is not None:
+            critical_constraints = state.target_plugin.get_critical_constraints()
+        elif state.target_domain_id:
             plugin = load_target_domain(state.target_domain_id)
             if plugin is not None:
                 critical_constraints = plugin.get_critical_constraints()
@@ -290,6 +294,7 @@ class DomainConstraintAuditor(BaseAuditor):
                 self._collect_plugin_violations(
                     hypothesis_text=text,
                     target_domain_id=state.target_domain_id,
+                    target_plugin=state.target_plugin,
                 )
             )
 
