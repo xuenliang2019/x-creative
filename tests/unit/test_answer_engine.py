@@ -176,7 +176,7 @@ class TestAnswerEngine:
             mock_solver.run = AsyncMock()
             mock_solver.close = AsyncMock()
 
-            config = AnswerConfig(saga_enabled=False, auto_refine=False)
+            config = AnswerConfig(saga_enabled=False, auto_refine=False, verify_threshold=0.0)
             engine = AnswerEngine(config=config)
             pack = await engine.answer("How to design a viral open source tool?")
 
@@ -267,7 +267,7 @@ class TestAnswerEngine:
             MockCE.return_value.generate = AsyncMock(return_value=hypotheses)
             MockCE.return_value.close = AsyncMock()
 
-            engine = AnswerEngine(config=AnswerConfig(saga_enabled=True, auto_refine=False))
+            engine = AnswerEngine(config=AnswerConfig(saga_enabled=True, auto_refine=False, verify_threshold=0.0))
             pack = await engine.answer("How to design a viral open source tool?")
 
         assert pack.needs_clarification is False
@@ -330,6 +330,7 @@ class TestAnswerEngine:
                 mode="quick",
                 search_depth=5,
                 search_breadth=7,
+                verify_threshold=0.0,
             )
             engine = AnswerEngine(config=config)
             await engine.answer("How to design a viral open source tool?")
@@ -377,7 +378,7 @@ class TestAnswerEngine:
             mock_ce.close = AsyncMock()
             mock_ce.set_hkg_enabled = MagicMock()
 
-            config = AnswerConfig(saga_enabled=False, auto_refine=False, hkg_enabled=False)
+            config = AnswerConfig(saga_enabled=False, auto_refine=False, hkg_enabled=False, verify_threshold=0.0)
             engine = AnswerEngine(config=config)
             await engine.answer("How to design a viral open source tool?")
 
@@ -447,7 +448,7 @@ class TestAnswerEngine:
             MockCE.return_value.close = AsyncMock()
             MockCE.return_value.set_hkg_enabled = MagicMock()
 
-            cfg = AnswerConfig(saga_enabled=True, auto_refine=False, budget=321)
+            cfg = AnswerConfig(saga_enabled=True, auto_refine=False, budget=321, verify_threshold=0.0)
             engine = AnswerEngine(config=cfg)
             await engine.answer("How to design a viral open source tool?")
 
@@ -503,7 +504,7 @@ class TestAnswerEngine:
             mock_ce.generate = AsyncMock(side_effect=capture_generate)
             mock_ce.close = AsyncMock()
 
-            config = AnswerConfig(saga_enabled=False, auto_refine=False, fresh=True)
+            config = AnswerConfig(saga_enabled=False, auto_refine=False, fresh=True, verify_threshold=0.0)
             engine = AnswerEngine(config=config)
             await engine.answer("How to build a quantitative finance model?")
 
@@ -581,6 +582,55 @@ class TestAnswerEngine:
                 await engine.answer("test question")
 
         assert exc_info.value.stage == "sources"
+
+    @pytest.mark.asyncio
+    async def test_answer_raises_on_all_below_threshold(self, tmp_path):
+        """All hypotheses below verify_threshold should raise PipelineStageError."""
+        from x_creative.answer.engine import AnswerEngine
+        from x_creative.answer.types import PipelineStageError
+
+        frame = _mock_frame()
+        plugin = _mock_plugin()
+        session = Session(id="test-low-scores", topic="below-threshold")
+
+        # Create hypotheses that score below threshold (default 5.0)
+        low_hyp = _mock_hypothesis(0)
+        low_hyp.final_score = 2.0
+        low_hyp2 = _mock_hypothesis(1)
+        low_hyp2.final_score = 3.0
+
+        with (
+            patch("x_creative.answer.engine.SessionManager") as MockSM,
+            patch("x_creative.answer.engine.ProblemFrameBuilder") as MockPFB,
+            patch("x_creative.answer.engine.TargetDomainResolver") as MockTDR,
+            patch("x_creative.answer.engine.SourceDomainSelector") as MockSDS,
+            patch("x_creative.answer.engine.CreativityEngine") as MockCE,
+        ):
+            mock_sm = MockSM.return_value
+            mock_sm.create_session.return_value = session
+            mock_sm.save_stage_data = MagicMock()
+            mock_sm.data_dir = tmp_path
+
+            MockPFB.return_value.build = AsyncMock(
+                return_value=FrameBuildResult(frame=frame, confidence=0.9)
+            )
+            MockTDR.return_value.resolve = AsyncMock(return_value=plugin)
+            MockSDS.return_value.select = AsyncMock(
+                return_value=[MagicMock(id="domain_a")]
+            )
+
+            mock_ce = MockCE.return_value
+            mock_ce.generate = AsyncMock(return_value=[low_hyp, low_hyp2])
+            mock_ce.close = AsyncMock()
+
+            engine = AnswerEngine(config=AnswerConfig(
+                saga_enabled=False, auto_refine=False, verify_threshold=5.0,
+            ))
+            with pytest.raises(PipelineStageError) as exc_info:
+                await engine.answer("test question")
+
+        assert exc_info.value.stage == "verify_filter"
+        assert "threshold" in exc_info.value.reason.lower() or "verify" in exc_info.value.reason.lower()
 
 
 class TestPipelineStageError:

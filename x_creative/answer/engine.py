@@ -251,6 +251,23 @@ class AnswerEngine:
             if (h.final_score or h.composite_score() or 0) >= cfg.verify_threshold
         ]
 
+        await self._stage_gate(
+            "verify_filter", verified_above, critical=True,
+            reason=(
+                f"All {len(hypotheses)} hypotheses scored below "
+                f"verify_threshold={cfg.verify_threshold}"
+            ),
+            context={
+                "total_hypotheses": len(hypotheses),
+                "verify_threshold": cfg.verify_threshold,
+                "max_score": max(
+                    (h.final_score or h.composite_score() or 0 for h in hypotheses),
+                    default=0,
+                ),
+            },
+            progress_callback=progress_callback,
+        )
+
         # 6. SOLVE
         solve_result = None
         if verified_above and cfg.auto_refine:
