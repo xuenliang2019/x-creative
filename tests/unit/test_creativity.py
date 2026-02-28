@@ -201,6 +201,7 @@ class TestBISOModule:
         from x_creative.creativity.biso import BISOModule
 
         biso = BISOModule()
+        biso._biso_pool = []  # disable pool to avoid retry doubling call count
         call_times: list[float] = []
 
         async def mock_complete(*args: Any, **kwargs: Any) -> MagicMock:
@@ -682,6 +683,156 @@ class TestBISOModule:
                 # The argument should be a list of hypotheses from both domains
                 call_args = mock_dedup.call_args[0][0]
                 assert len(call_args) == 2
+
+    @pytest.mark.asyncio
+    async def test_generate_analogies_passes_biso_max_tokens(
+        self, sample_domain: Domain, sample_problem: ProblemFrame
+    ) -> None:
+        """biso_max_tokens should be forwarded to router.complete as max_tokens."""
+        from x_creative.creativity.biso import BISOModule
+
+        biso = BISOModule()
+        biso._biso_pool = []  # no pool to simplify assertion
+        biso._biso_max_tokens = 8192
+
+        valid_response = json.dumps([{
+            "analogy": "Test analogy",
+            "structure_id": "test_structure",
+            "explanation": "Mapping explanation",
+            "observable": "Test observable",
+            "mapping_table": [{
+                "source_concept": "A",
+                "target_concept": "B",
+                "source_relation": "R1",
+                "target_relation": "R2",
+                "mapping_type": "relation",
+                "systematicity_group_id": "g1",
+            }],
+            "failure_modes": [{
+                "scenario": "When X",
+                "why_breaks": "Because Y",
+                "detectable_signal": "Signal Z",
+            }],
+        }])
+
+        with patch.object(biso, "_router") as mock_router:
+            mock_router.complete = AsyncMock(
+                return_value=MagicMock(content=valid_response)
+            )
+            await biso.generate_analogies(
+                domain=sample_domain,
+                problem=sample_problem,
+                num_analogies=1,
+            )
+            call_kwargs = mock_router.complete.call_args.kwargs
+            assert call_kwargs["max_tokens"] == 8192
+
+    @pytest.mark.asyncio
+    async def test_generate_analogies_retries_on_parse_failure(
+        self, sample_domain: Domain, sample_problem: ProblemFrame
+    ) -> None:
+        """When pool model returns 0 hypotheses, retry once with default model."""
+        from x_creative.creativity.biso import BISOModule
+
+        biso = BISOModule()
+        biso._biso_pool = ["pool-model-a"]
+
+        valid_response = json.dumps([{
+            "analogy": "Test analogy",
+            "structure_id": "test_structure",
+            "explanation": "Mapping explanation",
+            "observable": "Test observable",
+            "mapping_table": [{
+                "source_concept": "A",
+                "target_concept": "B",
+                "source_relation": "R1",
+                "target_relation": "R2",
+                "mapping_type": "relation",
+                "systematicity_group_id": "g1",
+            }],
+            "failure_modes": [{
+                "scenario": "When X",
+                "why_breaks": "Because Y",
+                "detectable_signal": "Signal Z",
+            }],
+        }])
+
+        call_count = 0
+
+        async def mock_complete(*args: Any, **kwargs: Any) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                # First call (pool model) returns empty/truncated JSON
+                return MagicMock(content="[]")
+            # Retry (default model) returns valid response
+            return MagicMock(content=valid_response)
+
+        with patch.object(biso, "_router") as mock_router:
+            mock_router.complete = mock_complete
+            hypotheses = await biso.generate_analogies(
+                domain=sample_domain,
+                problem=sample_problem,
+                num_analogies=1,
+            )
+
+        assert call_count == 2
+        assert len(hypotheses) == 1
+        assert hypotheses[0].description == "Test analogy"
+
+    @pytest.mark.asyncio
+    async def test_generate_analogies_no_retry_without_pool(
+        self, sample_domain: Domain, sample_problem: ProblemFrame
+    ) -> None:
+        """When no pool model was used, do not retry on 0 hypotheses."""
+        from x_creative.creativity.biso import BISOModule
+
+        biso = BISOModule()
+        biso._biso_pool = []  # no pool
+
+        with patch.object(biso, "_router") as mock_router:
+            mock_router.complete = AsyncMock(
+                return_value=MagicMock(content="[]")
+            )
+            hypotheses = await biso.generate_analogies(
+                domain=sample_domain,
+                problem=sample_problem,
+                num_analogies=1,
+            )
+
+        # Should only call once — no retry without pool
+        assert mock_router.complete.call_count == 1
+        assert len(hypotheses) == 0
+
+    @pytest.mark.asyncio
+    async def test_generate_analogies_retry_no_model_override(
+        self, sample_domain: Domain, sample_problem: ProblemFrame
+    ) -> None:
+        """Retry call should NOT include model_override."""
+        from x_creative.creativity.biso import BISOModule
+
+        biso = BISOModule()
+        biso._biso_pool = ["pool-model-a"]
+
+        calls: list[dict[str, Any]] = []
+
+        async def mock_complete(*args: Any, **kwargs: Any) -> MagicMock:
+            calls.append(kwargs)
+            return MagicMock(content="[]")
+
+        with patch.object(biso, "_router") as mock_router:
+            mock_router.complete = mock_complete
+            await biso.generate_analogies(
+                domain=sample_domain,
+                problem=sample_problem,
+                num_analogies=1,
+            )
+
+        assert len(calls) == 2
+        # First call has model_override from pool
+        assert calls[0].get("model_override") == "pool-model-a"
+        # Retry call has no model_override
+        assert "model_override" not in calls[1]
 
 
 class TestSearchModule:

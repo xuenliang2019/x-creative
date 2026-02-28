@@ -71,6 +71,7 @@ class ModelRouter:
         """
         self._client = client or LLMClient()
         self._settings = get_settings()
+        self._model_max_tokens: dict[str, int] = dict(self._settings.model_max_tokens)
 
     def get_model(self, task: str) -> str:
         """Get the primary model for a task.
@@ -148,6 +149,14 @@ class ModelRouter:
         errors: list[tuple[str, Exception]] = []
 
         for model in models_to_try:
+            # Per-model output token cap
+            model_cap = self._model_max_tokens.get(model)
+            effective_max = (
+                min(actual_max_tokens, model_cap)
+                if model_cap and actual_max_tokens
+                else actual_max_tokens
+            )
+
             try:
                 logger.debug(
                     "Attempting completion",
@@ -160,7 +169,7 @@ class ModelRouter:
                     model=model,
                     messages=messages,
                     temperature=actual_temp,
-                    max_tokens=actual_max_tokens,
+                    max_tokens=effective_max,
                     **kwargs,
                 )
 
@@ -178,8 +187,8 @@ class ModelRouter:
                 # model context window. When the error provides the context length,
                 # retry once with a reduced max_tokens before falling back.
                 if (
-                    actual_max_tokens is not None
-                    and actual_max_tokens > 0
+                    effective_max is not None
+                    and effective_max > 0
                     and _is_context_length_error(e)
                 ):
                     max_ctx, input_tokens, _ = _extract_context_window(e)
@@ -191,13 +200,13 @@ class ModelRouter:
                             budget = max(0, budget - input_tokens)
                         reduced_max = max(16, budget)
 
-                    if reduced_max is not None and reduced_max < actual_max_tokens:
+                    if reduced_max is not None and reduced_max < effective_max:
                         try:
                             logger.warning(
                                 "Context length exceeded; retrying with reduced max_tokens",
                                 task=task,
                                 model=model,
-                                max_tokens=actual_max_tokens,
+                                max_tokens=effective_max,
                                 retry_max_tokens=reduced_max,
                             )
                             result = await self._client.complete(

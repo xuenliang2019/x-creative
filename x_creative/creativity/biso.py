@@ -51,6 +51,7 @@ class BISOModule:
             self._default_max_concurrency = 8
         self._biso_pool: list[str] = list(settings.biso_pool)
         self._biso_dedup_enabled: bool = settings.biso_dedup_enabled
+        self._biso_max_tokens: int = settings.biso_max_tokens
 
     def _get_domains(self, target_domain: str | None = None) -> DomainLibrary:
         """Get domain library, preferring target-domain-specific source domains.
@@ -154,12 +155,26 @@ class BISOModule:
         result = await self._router.complete(
             task="creativity",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=32768,
+            max_tokens=self._biso_max_tokens,
             **pool_kwargs,
         )
 
         # Parse response
         hypotheses = self._parse_analogies(result.content, domain)
+
+        # Retry once with default model if pool model produced 0 results
+        if len(hypotheses) == 0 and pool_kwargs.get("model_override"):
+            logger.warning(
+                "BISO parse returned 0 hypotheses, retrying with default model",
+                domain=domain.id,
+                failed_model=pool_kwargs["model_override"],
+            )
+            result = await self._router.complete(
+                task="creativity",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=self._biso_max_tokens,
+            )
+            hypotheses = self._parse_analogies(result.content, domain)
 
         logger.info(
             "Generated analogies",

@@ -125,6 +125,16 @@ class TestSettings:
         settings = Settings(_env_file=None)
         assert settings.biso_dedup_enabled is True
 
+    def test_biso_max_tokens_default(self) -> None:
+        """biso_max_tokens defaults to 16384."""
+        settings = Settings(_env_file=None)
+        assert settings.biso_max_tokens == 16384
+
+    def test_model_max_tokens_default_empty(self) -> None:
+        """model_max_tokens defaults to empty dict."""
+        settings = Settings(_env_file=None)
+        assert settings.model_max_tokens == {}
+
     def test_pareto_settings_defaults(self) -> None:
         """Test QD-Pareto selection defaults."""
         from x_creative.config.settings import Settings

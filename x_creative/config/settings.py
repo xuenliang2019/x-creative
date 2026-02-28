@@ -418,6 +418,12 @@ class Settings(BaseSettings):
     # BISO semantic deduplication
     biso_dedup_enabled: bool = True
 
+    # BISO max tokens per analogy generation call
+    biso_max_tokens: int = 16384
+
+    # Per-model output token caps (applied globally by router)
+    model_max_tokens: dict[str, int] = Field(default_factory=dict)
+
     # SAGA settings
     saga_enable_by_default: bool = False
     saga_default_budget: float = 100.0
