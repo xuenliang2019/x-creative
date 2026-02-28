@@ -144,6 +144,12 @@ class AnswerEngine:
                 problem_frame, target_plugin,
                 min_domains=18, max_domains=30,
             )
+        await self._stage_gate(
+            "sources", source_domains, critical=True,
+            reason="Source domain selection returned 0 domains",
+            context={"target_domain": target_plugin.id},
+            progress_callback=progress_callback,
+        )
         cp3 = self._cp3_source_bias_audit(source_domains, target_plugin.id)
         mode_depth, mode_breadth = self._resolve_mode_search_params(cfg)
         runtime_profile = (

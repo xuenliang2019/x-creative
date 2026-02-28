@@ -509,6 +509,39 @@ class TestAnswerEngine:
 
         assert captured_frame["target_domain"] == "fresh_a_share_finance"
 
+    @pytest.mark.asyncio
+    async def test_answer_raises_on_empty_sources(self, tmp_path):
+        """Empty source domains should raise PipelineStageError."""
+        from x_creative.answer.engine import AnswerEngine
+        from x_creative.answer.types import PipelineStageError
+
+        frame = _mock_frame()
+        plugin = _mock_plugin()
+        session = Session(id="test-empty-src", topic="empty-sources")
+
+        with (
+            patch("x_creative.answer.engine.SessionManager") as MockSM,
+            patch("x_creative.answer.engine.ProblemFrameBuilder") as MockPFB,
+            patch("x_creative.answer.engine.TargetDomainResolver") as MockTDR,
+            patch("x_creative.answer.engine.SourceDomainSelector") as MockSDS,
+        ):
+            mock_sm = MockSM.return_value
+            mock_sm.create_session.return_value = session
+            mock_sm.save_stage_data = MagicMock()
+            mock_sm.data_dir = tmp_path
+
+            MockPFB.return_value.build = AsyncMock(
+                return_value=FrameBuildResult(frame=frame, confidence=0.9)
+            )
+            MockTDR.return_value.resolve = AsyncMock(return_value=plugin)
+            MockSDS.return_value.select = AsyncMock(return_value=[])
+
+            engine = AnswerEngine(config=AnswerConfig(saga_enabled=False, auto_refine=False))
+            with pytest.raises(PipelineStageError) as exc_info:
+                await engine.answer("test question")
+
+        assert exc_info.value.stage == "sources"
+
 
 class TestPipelineStageError:
     def test_error_captures_stage_and_reason(self):
