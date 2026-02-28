@@ -238,6 +238,13 @@ class AnswerEngine:
             finally:
                 await creativity_engine.close()
 
+        await self._stage_gate(
+            "generation", hypotheses, critical=True,
+            reason="BISO/SEARCH/VERIFY produced 0 hypotheses",
+            context={"saga_enabled": cfg.saga_enabled},
+            progress_callback=progress_callback,
+        )
+
         # Filter by threshold
         verified_above = [
             h for h in hypotheses
