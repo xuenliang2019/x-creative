@@ -1547,3 +1547,162 @@ class TestSearchMappingGate:
 
         selected = module._select_for_expansion([gated_out, passes_gate], count=1)
         assert selected[0].id == "h_pass"
+
+
+class TestRecoverJsonArray:
+    """Tests for recover_json_array utility."""
+
+    def test_recover_json_array_valid(self) -> None:
+        """Full valid array returns all objects."""
+        from x_creative.creativity.utils import recover_json_array
+
+        text = '[{"a": 1}, {"b": 2}, {"c": 3}]'
+        result = recover_json_array(text)
+        assert len(result) == 3
+        assert result[0] == {"a": 1}
+        assert result[1] == {"b": 2}
+        assert result[2] == {"c": 3}
+
+    def test_recover_json_array_truncated(self) -> None:
+        """Array cut mid-object recovers preceding complete objects."""
+        from x_creative.creativity.utils import recover_json_array
+
+        text = '[{"a": 1}, {"b": 2}, {"c": 3, "d":'
+        result = recover_json_array(text)
+        assert len(result) == 2
+        assert result[0] == {"a": 1}
+        assert result[1] == {"b": 2}
+
+    def test_recover_json_array_trailing_comma(self) -> None:
+        """Trailing comma before ] handled."""
+        from x_creative.creativity.utils import recover_json_array
+
+        text = '[{"a": 1}, {"b": 2},]'
+        result = recover_json_array(text)
+        assert len(result) == 2
+        assert result[0] == {"a": 1}
+        assert result[1] == {"b": 2}
+
+    def test_recover_json_array_nested_braces(self) -> None:
+        """Objects with nested {} (e.g. in string values) parsed correctly."""
+        from x_creative.creativity.utils import recover_json_array
+
+        text = '[{"a": "value with {braces} inside"}, {"b": {"nested": true}}]'
+        result = recover_json_array(text)
+        assert len(result) == 2
+        assert result[0] == {"a": "value with {braces} inside"}
+        assert result[1] == {"b": {"nested": True}}
+
+    def test_recover_json_array_empty(self) -> None:
+        """Empty/no-array input returns []."""
+        from x_creative.creativity.utils import recover_json_array
+
+        assert recover_json_array("") == []
+        assert recover_json_array("no json here") == []
+        assert recover_json_array("[]") == []
+
+
+class TestTruncatedRecoveryEndToEnd:
+    """End-to-end tests for truncated JSON recovery in BISO and SEARCH parsers."""
+
+    @pytest.fixture
+    def sample_domain(self) -> Domain:
+        return Domain(
+            id="test_domain",
+            name="测试领域",
+            name_en="Test Domain",
+            description="A test domain",
+            structures=[
+                DomainStructure(
+                    id="test_structure",
+                    name="测试结构",
+                    description="A test structure",
+                    key_variables=["x", "y"],
+                    dynamics="Test dynamics",
+                )
+            ],
+            target_mappings=[
+                TargetMapping(
+                    structure="test_structure",
+                    target="测试目标",
+                    observable="test_obs",
+                )
+            ],
+        )
+
+    def _make_biso_object(self, idx: int) -> str:
+        """Create a valid BISO analogy JSON object string."""
+        return json.dumps({
+            "structure_id": "test_structure",
+            "analogy": f"Analogy {idx}",
+            "explanation": f"Explanation {idx}",
+            "observable": f"metric_{idx} = x / y",
+            "mapping_table": [{
+                "source_concept": "A",
+                "target_concept": "B",
+                "source_relation": "R1",
+                "target_relation": "R2",
+                "mapping_type": "relation",
+                "systematicity_group_id": "g1",
+            }],
+            "failure_modes": [{
+                "scenario": "When X",
+                "why_breaks": "Because Y",
+                "detectable_signal": "Signal Z",
+            }],
+        })
+
+    def test_parse_analogies_recovers_truncated(self, sample_domain: Domain) -> None:
+        """_parse_analogies with truncated BISO response recovers valid hypotheses."""
+        from x_creative.creativity.biso import BISOModule
+
+        biso = BISOModule()
+
+        # Build content: 2 complete objects + 1 truncated
+        obj1 = self._make_biso_object(1)
+        obj2 = self._make_biso_object(2)
+        truncated = '{"structure_id": "test_structure", "analogy": "Truncated", "observable": "met'
+        content = f"[{obj1}, {obj2}, {truncated}"
+
+        hypotheses = biso._parse_analogies(content, sample_domain)
+        assert len(hypotheses) == 2
+        assert hypotheses[0].description == "Analogy 1"
+        assert hypotheses[1].description == "Analogy 2"
+
+    def test_parse_expansions_recovers_truncated(self, sample_domain: Domain) -> None:
+        """_parse_expansions with truncated SEARCH response recovers valid hypotheses."""
+        from x_creative.creativity.search import SearchModule
+
+        search = SearchModule()
+
+        parent = Hypothesis(
+            id="parent_hyp",
+            description="Parent",
+            source_domain="test_domain",
+            source_structure="test_structure",
+            analogy_explanation="Parent explanation",
+            observable="parent_obs",
+            generation=0,
+        )
+
+        exp1 = json.dumps({
+            "description": "Expansion 1",
+            "observable": "obs_1",
+            "analogy_explanation": "Exp explanation 1",
+            "expansion_type": "refine",
+        })
+        exp2 = json.dumps({
+            "description": "Expansion 2",
+            "observable": "obs_2",
+            "analogy_explanation": "Exp explanation 2",
+            "expansion_type": "variant",
+        })
+        truncated = '{"description": "Expansion 3", "observable": "obs_'
+        content = f"[{exp1}, {exp2}, {truncated}"
+
+        hypotheses = search._parse_expansions(content, parent)
+        assert len(hypotheses) == 2
+        assert hypotheses[0].description == "Expansion 1"
+        assert hypotheses[1].description == "Expansion 2"
+        assert hypotheses[0].parent_id == "parent_hyp"
+        assert hypotheses[0].generation == 1

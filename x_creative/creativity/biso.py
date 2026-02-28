@@ -14,7 +14,7 @@ from x_creative.core.domain_loader import DomainLibrary
 from x_creative.core.types import Domain, FailureMode, Hypothesis, MappingItem, ProblemFrame
 from x_creative.config.settings import get_settings
 from x_creative.creativity.prompts import BISO_ANALOGY_PROMPT, BISO_DEDUP_PROMPT
-from x_creative.creativity.utils import safe_json_loads
+from x_creative.creativity.utils import recover_json_array, safe_json_loads
 from x_creative.llm.router import ModelRouter
 
 logger = structlog.get_logger()
@@ -201,61 +201,80 @@ class BISOModule:
             # Try to extract JSON from the response
             json_start = content.find("[")
             json_end = content.rfind("]") + 1
+            analogies: list[dict[str, Any]] = []
 
             if json_start >= 0 and json_end > json_start:
                 json_str = content[json_start:json_end]
-                analogies = safe_json_loads(json_str)
-
-                for analogy in analogies:
-                    if not isinstance(analogy, dict):
-                        continue
-                    observable = str(analogy.get("observable", "")).strip()
-                    if not observable:
-                        continue
-
-                    # Parse mapping_table (graceful: skip invalid items)
-                    mapping_table = []
-                    for m in analogy.get("mapping_table", []):
-                        if isinstance(m, dict):
-                            try:
-                                mapping_table.append(MappingItem(**m))
-                            except Exception:
-                                pass
-
-                    # Parse failure_modes (graceful: skip invalid items)
-                    failure_modes = []
-                    for fm in analogy.get("failure_modes", []):
-                        if isinstance(fm, dict):
-                            try:
-                                failure_modes.append(FailureMode(**fm))
-                            except Exception:
-                                pass
-
-                    # Enforce structural evidence contract: BISO output must
-                    # include both mapping rows and failure modes.
-                    if not mapping_table or not failure_modes:
-                        rejected_missing_structural_evidence += 1
-                        continue
-
-                    hyp = Hypothesis(
-                        id=f"hyp_{uuid.uuid4().hex[:8]}",
-                        description=analogy.get("analogy", ""),
-                        source_domain=domain.id,
-                        source_structure=analogy.get("structure_id", ""),
-                        analogy_explanation=analogy.get("explanation", ""),
-                        observable=observable,
-                        generation=0,
-                        mapping_table=mapping_table,
-                        failure_modes=failure_modes,
-                    )
-                    hypotheses.append(hyp)
-
-                if rejected_missing_structural_evidence:
-                    logger.debug(
-                        "Rejected BISO candidates missing structural evidence",
+                try:
+                    analogies = safe_json_loads(json_str)
+                except json.JSONDecodeError:
+                    analogies = recover_json_array(content)
+                    if analogies:
+                        logger.info(
+                            "Recovered partial analogies from truncated JSON",
+                            domain=domain.id,
+                            recovered_count=len(analogies),
+                        )
+            elif json_start >= 0:
+                # Opening '[' found but no closing ']' — fully truncated array
+                analogies = recover_json_array(content)
+                if analogies:
+                    logger.info(
+                        "Recovered partial analogies from truncated JSON",
                         domain=domain.id,
-                        rejected_count=rejected_missing_structural_evidence,
+                        recovered_count=len(analogies),
                     )
+
+            for analogy in analogies:
+                if not isinstance(analogy, dict):
+                    continue
+                observable = str(analogy.get("observable", "")).strip()
+                if not observable:
+                    continue
+
+                # Parse mapping_table (graceful: skip invalid items)
+                mapping_table = []
+                for m in analogy.get("mapping_table", []):
+                    if isinstance(m, dict):
+                        try:
+                            mapping_table.append(MappingItem(**m))
+                        except Exception:
+                            pass
+
+                # Parse failure_modes (graceful: skip invalid items)
+                failure_modes = []
+                for fm in analogy.get("failure_modes", []):
+                    if isinstance(fm, dict):
+                        try:
+                            failure_modes.append(FailureMode(**fm))
+                        except Exception:
+                            pass
+
+                # Enforce structural evidence contract: BISO output must
+                # include both mapping rows and failure modes.
+                if not mapping_table or not failure_modes:
+                    rejected_missing_structural_evidence += 1
+                    continue
+
+                hyp = Hypothesis(
+                    id=f"hyp_{uuid.uuid4().hex[:8]}",
+                    description=analogy.get("analogy", ""),
+                    source_domain=domain.id,
+                    source_structure=analogy.get("structure_id", ""),
+                    analogy_explanation=analogy.get("explanation", ""),
+                    observable=observable,
+                    generation=0,
+                    mapping_table=mapping_table,
+                    failure_modes=failure_modes,
+                )
+                hypotheses.append(hyp)
+
+            if rejected_missing_structural_evidence:
+                logger.debug(
+                    "Rejected BISO candidates missing structural evidence",
+                    domain=domain.id,
+                    rejected_count=rejected_missing_structural_evidence,
+                )
 
         except (json.JSONDecodeError, KeyError, ValueError) as e:
             logger.warning(

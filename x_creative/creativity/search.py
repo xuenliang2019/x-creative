@@ -6,14 +6,14 @@ import json
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import structlog
 from structlog import contextvars
 
 from x_creative.core.types import Hypothesis, SearchConfig
 from x_creative.creativity.prompts import SEARCH_COMBINE_PROMPT, SEARCH_EXPAND_PROMPT
-from x_creative.creativity.utils import safe_json_loads
+from x_creative.creativity.utils import recover_json_array, safe_json_loads
 from x_creative.llm.router import ModelRouter
 
 if TYPE_CHECKING:
@@ -296,35 +296,54 @@ class SearchModule:
         try:
             json_start = content.find("[")
             json_end = content.rfind("]") + 1
+            expansions: list[dict[str, Any]] = []
 
             if json_start >= 0 and json_end > json_start:
                 json_str = content[json_start:json_end]
-                expansions = safe_json_loads(json_str)
-
-                for exp in expansions:
-                    if not isinstance(exp, dict):
-                        continue
-                    observable = str(exp.get("observable", "")).strip()
-                    if not observable:
-                        continue
-                    hyp = Hypothesis(
-                        id=f"hyp_{uuid.uuid4().hex[:8]}",
-                        description=str(exp.get("description", "")).strip(),
-                        source_domain=parent.source_domain,
-                        source_structure=parent.source_structure,
-                        analogy_explanation=str(exp.get("analogy_explanation", "")).strip(),
-                        observable=observable,
-                        parent_id=parent.id,
-                        generation=parent.generation + 1,
-                        expansion_type=exp.get("expansion_type"),
-                        mapping_quality=parent.mapping_quality,
-                        quick_score=(
-                            parent.quick_score * 0.9
-                            if parent.quick_score is not None
-                            else None
-                        ),
+                try:
+                    expansions = safe_json_loads(json_str)
+                except json.JSONDecodeError:
+                    expansions = recover_json_array(content)
+                    if expansions:
+                        logger.info(
+                            "Recovered partial expansions from truncated JSON",
+                            parent=parent.id,
+                            recovered_count=len(expansions),
+                        )
+            elif json_start >= 0:
+                # Opening '[' found but no closing ']' — fully truncated array
+                expansions = recover_json_array(content)
+                if expansions:
+                    logger.info(
+                        "Recovered partial expansions from truncated JSON",
+                        parent=parent.id,
+                        recovered_count=len(expansions),
                     )
-                    hypotheses.append(hyp)
+
+            for exp in expansions:
+                if not isinstance(exp, dict):
+                    continue
+                observable = str(exp.get("observable", "")).strip()
+                if not observable:
+                    continue
+                hyp = Hypothesis(
+                    id=f"hyp_{uuid.uuid4().hex[:8]}",
+                    description=str(exp.get("description", "")).strip(),
+                    source_domain=parent.source_domain,
+                    source_structure=parent.source_structure,
+                    analogy_explanation=str(exp.get("analogy_explanation", "")).strip(),
+                    observable=observable,
+                    parent_id=parent.id,
+                    generation=parent.generation + 1,
+                    expansion_type=exp.get("expansion_type"),
+                    mapping_quality=parent.mapping_quality,
+                    quick_score=(
+                        parent.quick_score * 0.9
+                        if parent.quick_score is not None
+                        else None
+                    ),
+                )
+                hypotheses.append(hyp)
 
         except (json.JSONDecodeError, KeyError, ValueError) as e:
             logger.warning(
