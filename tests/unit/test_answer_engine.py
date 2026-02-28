@@ -455,3 +455,74 @@ class TestAnswerEngine:
         budget = kwargs["budget"]
         assert budget.total_budget == pytest.approx(321.0)
         assert budget.reserve_ratio == pytest.approx(0.1)
+
+    @pytest.mark.asyncio
+    async def test_fresh_mode_updates_problem_frame_target_domain(self, tmp_path):
+        """After resolve in fresh mode, problem_frame.target_domain equals the fresh plugin's ID."""
+        from x_creative.answer.engine import AnswerEngine
+
+        frame = ProblemFrame(
+            description="How to build a quantitative finance model for A-shares?",
+            target_domain="general",
+        )
+        fresh_plugin = TargetDomainPlugin(
+            id="fresh_a_share_finance",
+            name="A股量化",
+            description="Chinese A-share quantitative finance",
+        )
+        hypotheses = [_mock_hypothesis(i) for i in range(2)]
+        session = Session(id="test-fresh", topic="fresh-mode")
+
+        captured_frame = {}
+
+        async def capture_generate(problem, config, source_domains, progress_callback=None):
+            captured_frame["target_domain"] = problem.target_domain
+            return hypotheses
+
+        with (
+            patch("x_creative.answer.engine.SessionManager") as MockSM,
+            patch("x_creative.answer.engine.ProblemFrameBuilder") as MockPFB,
+            patch("x_creative.answer.engine.TargetDomainResolver") as MockTDR,
+            patch("x_creative.answer.engine.SourceDomainSelector") as MockSDS,
+            patch("x_creative.answer.engine.CreativityEngine") as MockCE,
+        ):
+            mock_sm = MockSM.return_value
+            mock_sm.create_session.return_value = session
+            mock_sm.save_stage_data = MagicMock()
+            mock_sm.data_dir = tmp_path
+
+            MockPFB.return_value.build = AsyncMock(
+                return_value=FrameBuildResult(frame=frame, confidence=0.9)
+            )
+            MockTDR.return_value.resolve = AsyncMock(return_value=fresh_plugin)
+            MockSDS.return_value.select = AsyncMock(
+                return_value=[MagicMock(id="fluid_dynamics")]
+            )
+
+            mock_ce = MockCE.return_value
+            mock_ce.generate = AsyncMock(side_effect=capture_generate)
+            mock_ce.close = AsyncMock()
+
+            config = AnswerConfig(saga_enabled=False, auto_refine=False, fresh=True)
+            engine = AnswerEngine(config=config)
+            await engine.answer("How to build a quantitative finance model?")
+
+        assert captured_frame["target_domain"] == "fresh_a_share_finance"
+
+
+class TestPipelineStageError:
+    def test_error_captures_stage_and_reason(self):
+        from x_creative.answer.types import PipelineStageError
+
+        err = PipelineStageError("generation", "BISO produced 0 hypotheses", {"count": 0})
+        assert err.stage == "generation"
+        assert err.reason == "BISO produced 0 hypotheses"
+        assert err.context == {"count": 0}
+        assert "generation" in str(err)
+        assert "BISO produced 0 hypotheses" in str(err)
+
+    def test_error_default_context_is_empty_dict(self):
+        from x_creative.answer.types import PipelineStageError
+
+        err = PipelineStageError("sources", "No source domains")
+        assert err.context == {}

@@ -7,6 +7,22 @@ from typing import Any
 
 from x_creative.core.types import ProblemFrame
 
+
+class PipelineStageError(RuntimeError):
+    """A critical pipeline stage produced no usable output."""
+
+    def __init__(
+        self,
+        stage: str,
+        reason: str,
+        context: dict[str, Any] | None = None,
+    ) -> None:
+        self.stage = stage
+        self.reason = reason
+        self.context = context or {}
+        super().__init__(f"[{stage}] {reason}")
+
+
 _VALID_MODES = {"quick", "deep_research", "exhaustive"}
 
 
