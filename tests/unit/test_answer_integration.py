@@ -121,9 +121,18 @@ class TestAnswerIntegration:
                 "x_creative.answer.engine.TalkerReasonerSolver",
             ) as MockSolver,
         ):
-            # CreativityEngine returns empty hypothesis list (acceptable path)
+            # CreativityEngine returns mock hypotheses with scores above threshold
+            from x_creative.core.types import Hypothesis
+            mock_hypotheses = [
+                Hypothesis(
+                    id="h_mock", description="Mock hypothesis",
+                    source_domain="epidemiology", source_structure="compartment_flow",
+                    analogy_explanation="Mock analogy", observable="mock_metric",
+                    final_score=7.0,
+                ),
+            ]
             mock_ce_instance = MockCE.return_value
-            mock_ce_instance.generate = AsyncMock(return_value=[])
+            mock_ce_instance.generate = AsyncMock(return_value=mock_hypotheses)
             mock_ce_instance.close = AsyncMock()
 
             # Solver (won't be called because auto_refine=False)
