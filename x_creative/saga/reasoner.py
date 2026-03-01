@@ -19,9 +19,11 @@ from x_creative.config.settings import (
     get_settings,
 )
 from x_creative.core.types import ConstraintSpec, Hypothesis, ProblemFrame
+from x_creative.creativity.utils import extract_json_object
 from x_creative.llm.router import ModelRouter
 from x_creative.saga.belief import (
     BeliefState,
+    CausalStrengthening,
     CrossValidation,
     EvidenceItem,
     HypothesisVerdict,
@@ -52,15 +54,7 @@ class QualityAuditRejected(ReasonerFatalError):
 
 def _extract_json_object(text: str) -> dict[str, Any]:
     """Extract the first JSON object from text."""
-    match = re.search(r"\{[\s\S]*\}", text)
-    if not match:
-        return {}
-    try:
-        parsed = json.loads(match.group(0))
-        if isinstance(parsed, dict):
-            return parsed
-    except json.JSONDecodeError:
-        return {}
+    return extract_json_object(text)
     return {}
 
 
@@ -81,14 +75,15 @@ def _extract_json_array(text: str) -> list[Any]:
 class Reasoner:
     """Multi-step reasoning agent (System 2).
 
-    Builds a structured BeliefState through 7 reasoning phases:
+    Builds a structured BeliefState through 8 reasoning phases:
     1. Problem Analysis
     2. Hypothesis Evaluation
     3. Evidence Gathering (web search)
     4. Cross Validation
-    5. Solution Planning
-    6. Quality Audit (cross-model adversarial)
-    7. Belief Synthesis (programmatic)
+    5. Causal Strengthening
+    6. Solution Planning
+    7. Quality Audit (cross-model adversarial)
+    8. Belief Synthesis (programmatic)
     """
 
     def __init__(
@@ -149,19 +144,20 @@ class Reasoner:
         )
         selected = sorted_hyps[: max(1, max_ideas)]
 
-        # Steps 1-4: execute once
+        # Steps 1-5: execute once
         fixed_steps = [
             (ReasoningPhase.PROBLEM_ANALYSIS, self._step_problem_analysis),
             (ReasoningPhase.HYPOTHESIS_EVALUATION, self._step_hypothesis_evaluation),
             (ReasoningPhase.EVIDENCE_GATHERING, self._step_evidence_gathering),
             (ReasoningPhase.CROSS_VALIDATION, self._step_cross_validation),
+            (ReasoningPhase.CAUSAL_STRENGTHENING, self._step_causal_strengthening),
         ]
 
         step_number = 0
         for phase, step_fn in fixed_steps:
             step_number += 1
             await self._execute_and_record_step(
-                belief, phase, step_fn, step_number, 7,
+                belief, phase, step_fn, step_number, 8,
                 problem=problem, verify_markdown=verify_markdown, selected=selected,
             )
 
@@ -184,7 +180,7 @@ class Reasoner:
             step_number += 1
             await self._execute_and_record_step(
                 belief, ReasoningPhase.SOLUTION_PLANNING,
-                self._step_solution_planning, step_number, 7,
+                self._step_solution_planning, step_number, 8,
                 problem=problem, verify_markdown=verify_markdown,
                 selected=selected, prior_risks=prior_risks,
             )
@@ -197,7 +193,7 @@ class Reasoner:
             try:
                 await self._execute_and_record_step(
                     belief, ReasoningPhase.QUALITY_AUDIT,
-                    self._step_quality_audit, step_number, 7,
+                    self._step_quality_audit, step_number, 8,
                     problem=problem, verify_markdown=verify_markdown,
                     selected=selected,
                 )
@@ -238,7 +234,7 @@ class Reasoner:
         step_number += 1
         await self._execute_and_record_step(
             belief, ReasoningPhase.BELIEF_SYNTHESIS,
-            self._step_belief_synthesis, step_number, 7,
+            self._step_belief_synthesis, step_number, 8,
             problem=problem, verify_markdown=verify_markdown, selected=selected,
         )
 
@@ -664,7 +660,81 @@ class Reasoner:
         )
 
     # ------------------------------------------------------------------
-    # Step 5: Solution Planning
+    # Step 5: Causal Strengthening
+    # ------------------------------------------------------------------
+
+    async def _step_causal_strengthening(
+        self,
+        belief: BeliefState,
+        problem: ProblemFrame,  # noqa: ARG002
+        verify_markdown: str,  # noqa: ARG002
+        selected: list[Hypothesis],  # noqa: ARG002
+    ) -> None:
+        evidence_summary = [
+            {
+                "evidence_id": e.evidence_id,
+                "hypothesis_id": e.hypothesis_id,
+                "description": e.hypothesis_description[:100],
+                "source_domain": e.source_domain,
+                "source_structure": e.source_structure,
+            }
+            for e in belief.evidence
+        ]
+
+        verdict_summary = [
+            {
+                "hypothesis_id": v.hypothesis_id,
+                "strength": v.strength,
+                "weakness": v.weakness,
+            }
+            for v in belief.hypothesis_verdicts[:8]
+        ]
+
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "你是因果推理专家。分析以下假说的因果链，识别混杂因素，"
+                    "并强化薄弱的因果机制。输出严格 JSON（无其他文字）。\n"
+                    "JSON 格式:\n"
+                    "{\n"
+                    '  "causal_chains": [{"hypothesis_id": "H-xxx", "mechanism": "A→B→C 因果链描述"}],\n'
+                    '  "confounders": ["混杂因素1", "混杂因素2"],\n'
+                    '  "strengthened_mechanisms": [{"hypothesis_id": "H-xxx", "original": "原始机制", "strengthened": "强化后的机制"}],\n'
+                    '  "summary": "因果分析总结"\n'
+                    "}"
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"问题核心: {belief.problem_analysis.core_challenge}\n\n"
+                    f"交叉验证结果:\n{json.dumps(belief.cross_validation.model_dump(), ensure_ascii=False, indent=2)}\n\n"
+                    f"假说评估:\n{json.dumps(verdict_summary, ensure_ascii=False, indent=2)}\n\n"
+                    f"证据项:\n{json.dumps(evidence_summary, ensure_ascii=False, indent=2)}"
+                ),
+            },
+        ]
+
+        result = await self._router.complete(
+            task="reasoner_step",
+            messages=messages,
+            temperature=0.3,
+            max_tokens=4096,
+        )
+        belief.total_llm_calls += 1
+        belief.total_tokens_used += result.prompt_tokens + result.completion_tokens
+
+        data = _extract_json_object(result.content)
+        belief.causal_strengthening = CausalStrengthening(
+            causal_chains=data.get("causal_chains", []),
+            confounders=[str(c) for c in data.get("confounders", [])],
+            strengthened_mechanisms=data.get("strengthened_mechanisms", []),
+            summary=str(data.get("summary", "")),
+        )
+
+    # ------------------------------------------------------------------
+    # Step 6: Solution Planning
     # ------------------------------------------------------------------
 
     async def _step_solution_planning(

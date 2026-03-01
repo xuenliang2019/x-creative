@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 
 from x_creative.core.types import ConstraintSpec, Hypothesis, ProblemFrame
 from x_creative.config.settings import get_settings
+from x_creative.creativity.utils import extract_json_object
 from x_creative.llm.router import ModelRouter
 from x_creative.saga.events import EventBus, EventType, FastAgentEvent
 from x_creative.saga.belief import BeliefState, EvidenceItem, TalkerReasonerResult, UserQuestion
@@ -848,16 +849,7 @@ class SAGASolver:
 
 def _extract_json_object(text: str) -> dict[str, Any]:
     """Extract the first JSON object from text."""
-    match = re.search(r"\{[\s\S]*\}", text)
-    if not match:
-        return {}
-    try:
-        parsed = json.loads(match.group(0))
-        if isinstance(parsed, dict):
-            return parsed
-    except json.JSONDecodeError:
-        return {}
-    return {}
+    return extract_json_object(text)
 
 
 # Backward-compatible alias for callers that explicitly need Talker-Reasoner.

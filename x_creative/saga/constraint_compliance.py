@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import json
-import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, ValidationError
 
 from x_creative.core.types import ProblemFrame
+from x_creative.creativity.utils import extract_json_object
 
 
 class UserConstraintComplianceError(RuntimeError):
@@ -33,18 +32,8 @@ class ConstraintComplianceReport(BaseModel):
     items: list[ConstraintComplianceItem] = Field(default_factory=list)
 
 
-_JSON_OBJ_RE = re.compile(r"\{[\s\S]*\}")
-
-
 def _extract_json_object(text: str) -> dict[str, Any]:
-    match = _JSON_OBJ_RE.search(text or "")
-    if not match:
-        return {}
-    try:
-        parsed = json.loads(match.group(0))
-        return parsed if isinstance(parsed, dict) else {}
-    except json.JSONDecodeError:
-        return {}
+    return extract_json_object(text or "")
 
 
 def _canonical_user_constraints(problem: ProblemFrame) -> list[tuple[str, str]]:

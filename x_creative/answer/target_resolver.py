@@ -14,6 +14,11 @@ from x_creative.core.plugin import (
     load_target_domain,
 )
 from x_creative.core.types import ProblemFrame
+from x_creative.creativity.utils import (
+    recover_json_array,
+    recover_truncated_json_object,
+    safe_json_loads,
+)
 from x_creative.llm.router import ModelRouter
 
 logger = logging.getLogger(__name__)
@@ -171,7 +176,31 @@ class TargetDomainResolver:
                 if text.endswith("```"):
                     text = text[:-3]
 
-            parsed: dict[str, Any] = json.loads(text)
+            try:
+                parsed: dict[str, Any] = safe_json_loads(text)
+            except json.JSONDecodeError:
+                logger.warning(
+                    "Fresh domain: JSON parse failed, attempting recovery. Raw text:\n%s",
+                    text,
+                )
+                parsed = recover_truncated_json_object(text)
+                # If source_domains array was truncated, recover individual objects
+                if "source_domains" not in parsed or not parsed["source_domains"]:
+                    sd_marker = '"source_domains"'
+                    sd_idx = text.find(sd_marker)
+                    if sd_idx >= 0:
+                        sd_fragment = text[sd_idx + len(sd_marker):]
+                        recovered_sd = recover_json_array(sd_fragment)
+                        if recovered_sd:
+                            parsed["source_domains"] = recovered_sd
+
+            if not isinstance(parsed, dict) or not parsed:
+                logger.warning("Fresh domain: recovery yielded empty result, falling back to general")
+                return TargetDomainPlugin(
+                    id="general",
+                    name="General",
+                    description="General-purpose domain",
+                )
 
             raw_constraints = parsed.get("constraints", [])
             constraints: list[DomainConstraint] = []
@@ -240,7 +269,30 @@ class TargetDomainResolver:
                 if text.endswith("```"):
                     text = text[:-3]
 
-            parsed: dict[str, Any] = json.loads(text)
+            try:
+                parsed: dict[str, Any] = safe_json_loads(text)
+            except json.JSONDecodeError:
+                logger.warning(
+                    "Ephemeral domain: JSON parse failed, attempting recovery. Raw text:\n%s",
+                    text,
+                )
+                parsed = recover_truncated_json_object(text)
+                if "source_domains" not in parsed or not parsed["source_domains"]:
+                    sd_marker = '"source_domains"'
+                    sd_idx = text.find(sd_marker)
+                    if sd_idx >= 0:
+                        sd_fragment = text[sd_idx + len(sd_marker):]
+                        recovered_sd = recover_json_array(sd_fragment)
+                        if recovered_sd:
+                            parsed["source_domains"] = recovered_sd
+
+            if not isinstance(parsed, dict) or not parsed:
+                logger.warning("Ephemeral domain: recovery yielded empty result, falling back to general")
+                return TargetDomainPlugin(
+                    id="general",
+                    name="General",
+                    description="General-purpose domain",
+                )
 
             raw_constraints = parsed.get("constraints", [])
             constraints: list[DomainConstraint] = []
