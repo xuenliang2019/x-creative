@@ -17,7 +17,7 @@ from x_creative.cli import run as run_cli
 from x_creative.cli import session as session_cli
 from x_creative.cli import show as show_cli
 from x_creative.cli.concept_space_cli import concept_space_app
-from x_creative.config.settings import USER_CONFIG_FILE, get_settings, init_user_config
+from x_creative.config.settings import get_settings
 from x_creative.core.plugin import load_target_domain
 from x_creative.core.domain_loader import DomainLibrary
 from x_creative.core.types import Hypothesis, ProblemFrame, SearchConfig
@@ -277,10 +277,6 @@ def config_show() -> None:
 
     console.print(Panel("[bold]X-Creative Configuration[/bold]"))
 
-    console.print("\n[bold]Config Files:[/bold]")
-    console.print(f"  User config: {USER_CONFIG_FILE}")
-    console.print(f"  Exists: {USER_CONFIG_FILE.exists()}")
-
     console.print("\n[bold]General:[/bold]")
     console.print(f"  Default Provider: {settings.default_provider}")
     console.print(f"  Default Hypotheses: {settings.default_num_hypotheses}")
@@ -310,28 +306,6 @@ def config_show() -> None:
         console.print(f"    Temperature: {config.temperature}")
         if config.fallback:
             console.print(f"    Fallbacks: {', '.join(config.fallback)}")
-
-
-@config_app.command("init")
-def config_init() -> None:
-    """Initialize user configuration file.
-
-    Creates ~/.config/x-creative/config.yaml with a template.
-    """
-    config_path = init_user_config()
-    console.print(f"[green]Configuration file created at:[/green] {config_path}")
-    console.print("\nEdit this file to set your API key and other options.")
-    console.print("Environment variables will override settings in this file.")
-
-
-@config_app.command("path")
-def config_path() -> None:
-    """Show the path to the user configuration file."""
-    console.print(f"User config file: {USER_CONFIG_FILE}")
-    if USER_CONFIG_FILE.exists():
-        console.print("[green]File exists[/green]")
-    else:
-        console.print("[yellow]File does not exist. Run 'x-creative config init' to create it.[/yellow]")
 
 
 @config_app.command("check")

@@ -333,8 +333,6 @@ class Reasoner:
         result = await self._router.complete(
             task="reasoner_step",
             messages=messages,
-            temperature=0.3,
-            max_tokens=4096,
         )
         belief.total_llm_calls += 1
         belief.total_tokens_used += result.prompt_tokens + result.completion_tokens
@@ -403,8 +401,6 @@ class Reasoner:
         result = await self._router.complete(
             task="reasoner_step",
             messages=messages,
-            temperature=0.3,
-            max_tokens=4096,
         )
         belief.total_llm_calls += 1
         belief.total_tokens_used += result.prompt_tokens + result.completion_tokens
@@ -588,7 +584,6 @@ class Reasoner:
             result = await self._router.complete(
                 task="reasoner_step",
                 messages=messages,
-                temperature=0.3,
                 max_tokens=512,
             )
             tokens = result.prompt_tokens + result.completion_tokens
@@ -645,8 +640,6 @@ class Reasoner:
         result = await self._router.complete(
             task="reasoner_step",
             messages=messages,
-            temperature=0.3,
-            max_tokens=4096,
         )
         belief.total_llm_calls += 1
         belief.total_tokens_used += result.prompt_tokens + result.completion_tokens
@@ -719,8 +712,6 @@ class Reasoner:
         result = await self._router.complete(
             task="reasoner_step",
             messages=messages,
-            temperature=0.3,
-            max_tokens=4096,
         )
         belief.total_llm_calls += 1
         belief.total_tokens_used += result.prompt_tokens + result.completion_tokens
@@ -837,7 +828,6 @@ class Reasoner:
         result = await self._router.complete(
             task="reasoner_step",
             messages=messages,
-            temperature=0.3,
             max_tokens=16384,
         )
         belief.total_llm_calls += 1
@@ -936,8 +926,6 @@ class Reasoner:
         result = await self._router.complete(
             task="saga_adversarial",
             messages=messages,
-            temperature=0.4,
-            max_tokens=4096,
         )
         belief.total_llm_calls += 1
         belief.total_tokens_used += result.prompt_tokens + result.completion_tokens
@@ -1086,7 +1074,6 @@ class Reasoner:
             task="saga_adversarial",
             messages=messages,
             temperature=0.3,
-            max_tokens=4096,
         )
         belief.total_llm_calls += 1
         belief.total_tokens_used += result.prompt_tokens + result.completion_tokens
@@ -1140,7 +1127,6 @@ class Reasoner:
         result = await self._router.complete(
             task="reasoner_step",
             messages=messages,
-            temperature=0.3,
             max_tokens=2048,
         )
 

@@ -179,7 +179,6 @@ class TalkerReasonerSolver:
                     task="constraint_compliance_revision",
                     messages=[{"role": "user", "content": revision_prompt}],
                     temperature=0.2,
-                    max_tokens=8192,
                 )
                 belief.total_llm_calls += 1
                 belief.total_tokens_used += int(getattr(revised, "prompt_tokens", 0)) + int(
@@ -838,7 +837,6 @@ class SAGASolver:
         completion = await self._router.complete(
             task="talker_output",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.2,
             max_tokens=4096,
         )
         content = str(getattr(completion, "content", "")).strip()

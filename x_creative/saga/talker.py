@@ -84,8 +84,6 @@ class Talker:
             result = await self._router.complete(
                 task="talker_output",
                 messages=messages,
-                temperature=0.2,
-                max_tokens=8192,
             )
             belief.total_llm_calls += 1
             belief.total_tokens_used += result.prompt_tokens + result.completion_tokens

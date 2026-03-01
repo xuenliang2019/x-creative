@@ -3,29 +3,17 @@
 Configuration priority (highest to lowest):
 1. Environment variables
 2. .env file in current directory
-3. User config file (~/.config/x-creative/config.yaml)
-4. Default values
+3. Default values
 """
+
+from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-import yaml
 from pydantic import AliasChoices, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-# User config directory
-USER_CONFIG_DIR = Path.home() / ".config" / "x-creative"
-USER_CONFIG_FILE = USER_CONFIG_DIR / "config.yaml"
-
-
-def _load_user_config() -> dict[str, Any]:
-    """Load user configuration from ~/.config/x-creative/config.yaml."""
-    if USER_CONFIG_FILE.exists():
-        with open(USER_CONFIG_FILE, encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
-    return {}
 
 
 class ModelConfig(BaseSettings):
@@ -38,7 +26,37 @@ class ModelConfig(BaseSettings):
 
 
 class TaskRoutingConfig(BaseSettings):
-    """Task-to-model routing configuration."""
+    """Task-to-model routing configuration.
+
+    Supports partial overrides from .env, e.g.::
+
+        X_CREATIVE_TASK_ROUTING__NOVELTY_VERIFICATION__MAX_TOKENS=8192
+
+    The validator merges the partial dict with the field's default so that
+    required fields like ``model`` are preserved.
+    """
+
+    @model_validator(mode="before")
+    @classmethod
+    def _merge_partial_model_configs(cls, data: Any) -> Any:
+        """Deep-merge partial env-var dicts with ModelConfig defaults."""
+        if not isinstance(data, dict):
+            return data
+        for field_name, field_info in cls.model_fields.items():
+            if field_name not in data:
+                continue
+            value = data[field_name]
+            if not isinstance(value, dict):
+                continue
+            # Partial dict from env var — merge with default
+            factory = field_info.default_factory
+            if factory is not None:
+                default_obj = factory()
+                if isinstance(default_obj, ModelConfig):
+                    merged = default_obj.model_dump()
+                    merged.update(value)
+                    data[field_name] = merged
+        return data
 
     creativity: ModelConfig = Field(
         default_factory=lambda: ModelConfig(
@@ -94,7 +112,7 @@ class TaskRoutingConfig(BaseSettings):
             model="google/gemini-2.5-flash",
             fallback=["deepseek/deepseek-chat-v3-0324"],
             temperature=0.2,
-            max_tokens=4096,
+            max_tokens=8192,
         )
     )
     novelty_verification: ModelConfig = Field(
@@ -102,7 +120,7 @@ class TaskRoutingConfig(BaseSettings):
             model="google/gemini-2.5-flash-lite",
             fallback=["deepseek/deepseek-chat-v3-0324"],
             temperature=0.3,
-            max_tokens=4096,
+            max_tokens=8192,
         )
     )
 
@@ -192,7 +210,7 @@ class TaskRoutingConfig(BaseSettings):
             model="google/gemini-2.5-pro",
             fallback=["deepseek/deepseek-chat-v3-0324"],
             temperature=0.3,
-            max_tokens=4096,
+            max_tokens=8192,
         )
     )
 
@@ -243,6 +261,27 @@ class VerifierModelConfig(BaseSettings):
 
 class VerifiersConfig(BaseSettings):
     """Configuration for logic and novelty verifiers."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _merge_partial_verifier_configs(cls, data: Any) -> Any:
+        """Deep-merge partial env-var dicts with VerifierModelConfig defaults."""
+        if not isinstance(data, dict):
+            return data
+        for field_name, field_info in cls.model_fields.items():
+            if field_name not in data:
+                continue
+            value = data[field_name]
+            if not isinstance(value, dict):
+                continue
+            factory = field_info.default_factory
+            if factory is not None:
+                default_obj = factory()
+                if isinstance(default_obj, VerifierModelConfig):
+                    merged = default_obj.model_dump()
+                    merged.update(value)
+                    data[field_name] = merged
+        return data
 
     logic: VerifierModelConfig = Field(
         default_factory=lambda: VerifierModelConfig(
@@ -352,20 +391,11 @@ class Settings(BaseSettings):
     Configuration is loaded from multiple sources (highest priority first):
     1. Environment variables (X_CREATIVE_* prefix)
     2. .env file in current directory
-    3. User config file (~/.config/x-creative/config.yaml)
-    4. Default values
+    3. Default values
 
-    Example .env file:
-        OPENROUTER_API_KEY=sk-or-v1-your-key
-        YUNWU_API_KEY=your-yunwu-key
-        X_CREATIVE_DEFAULT_NUM_HYPOTHESES=100
+    Nested task routing supports partial overrides via env vars::
 
-    Example config.yaml:
-        openrouter:
-          api_key: sk-or-v1-your-key
-        yunwu:
-          api_key: your-yunwu-key
-        default_num_hypotheses: 100
+        X_CREATIVE_TASK_ROUTING__NOVELTY_VERIFICATION__MAX_TOKENS=8192
     """
 
     model_config = SettingsConfigDict(
@@ -556,116 +586,7 @@ def get_settings() -> Settings:
 
     Loads configuration from:
     1. Default values
-    2. User config file (~/.config/x-creative/config.yaml)
-    3. .env file
-    4. Environment variables (highest priority)
+    2. .env file
+    3. Environment variables (highest priority)
     """
-    # Load user config as base
-    user_config = _load_user_config()
-
-    # Handle nested openrouter config
-    openrouter_config = None
-    if "openrouter" in user_config:
-        openrouter_data = user_config.pop("openrouter")
-        openrouter_config = OpenRouterConfig(**openrouter_data)
-
-    # Handle nested brave_search config
-    brave_search_config = None
-    if "brave_search" in user_config:
-        brave_search_data = user_config.pop("brave_search")
-        brave_search_config = BraveSearchConfig(**brave_search_data)
-
-    # Handle nested yunwu config
-    yunwu_config = None
-    if "yunwu" in user_config:
-        yunwu_data = user_config.pop("yunwu")
-        yunwu_config = YunwuConfig(**yunwu_data)
-
-    # Create settings with user config as defaults
-    # Environment variables and .env will override these
-    settings = Settings(**user_config)
-
-    # If we loaded openrouter config from user file and env var is not set,
-    # use the user config value
-    if (
-        openrouter_config
-        and openrouter_config.api_key.get_secret_value()
-        and not settings.openrouter.api_key.get_secret_value()
-    ):
-        settings.openrouter = openrouter_config
-
-    # If we loaded brave_search config from user file and env var is not set,
-    # use the user config value
-    if (
-        brave_search_config
-        and brave_search_config.api_key.get_secret_value()
-        and not settings.brave_search.api_key.get_secret_value()
-    ):
-        settings.brave_search = brave_search_config
-
-    # If we loaded yunwu config from user file and env var is not set,
-    # use the user config value
-    if (
-        yunwu_config
-        and yunwu_config.api_key.get_secret_value()
-        and not settings.yunwu.api_key.get_secret_value()
-    ):
-        settings.yunwu = yunwu_config
-
-    return settings
-
-
-def init_user_config() -> Path:
-    """Initialize user config directory and return the config file path.
-
-    Creates ~/.config/x-creative/config.yaml with a template if it doesn't exist.
-    """
-    USER_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-
-    if not USER_CONFIG_FILE.exists():
-        template = """# X-Creative Configuration
-# This file is loaded automatically. Environment variables take priority.
-
-# OpenRouter API configuration
-openrouter:
-  api_key: ""  # Your OpenRouter API key (or set OPENROUTER_API_KEY env var)
-  base_url: "https://openrouter.ai/api/v1"
-
-# Yunwu API configuration
-# yunwu:
-#   api_key: ""  # Your Yunwu API key (or set YUNWU_API_KEY env var)
-#   base_url: "https://yunwu.ai/v1"
-
-# Brave Search API configuration (optional, for novelty verification)
-# brave_search:
-#   api_key: ""  # Your Brave Search API key (or set BRAVE_SEARCH_API_KEY env var)
-
-# Default generation settings
-# default_num_hypotheses: 50
-# default_search_depth: 3
-# default_search_breadth: 5
-
-# BISO LLM pool for diversity
-# Each domain randomly selects a model from this pool.
-# Set to empty list to disable and use only the creativity task's primary model.
-# biso_pool:
-#   - "google/gemini-2.5-pro"
-#   - "anthropic/claude-sonnet-4"
-#   - "deepseek/deepseek-r1"
-#   - "deepseek/deepseek-chat-v3-0324"
-
-# BISO semantic deduplication (default: true)
-# When enabled, uses LLM to identify and discard semantically duplicate
-# hypotheses after BISO generation, before entering SEARCH stage.
-# biso_dedup_enabled: true
-
-# Score weights (must sum to 1.0)
-# score_weight_divergence: 0.21
-# score_weight_testability: 0.26
-# score_weight_rationale: 0.21
-# score_weight_robustness: 0.17
-# score_weight_feasibility: 0.15
-"""
-        USER_CONFIG_FILE.write_text(template, encoding="utf-8")
-
-    return USER_CONFIG_FILE
+    return Settings()
