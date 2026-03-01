@@ -1,6 +1,7 @@
 """CLI commands for Answer Engine (single-entry deep research)."""
 
 import asyncio
+import sys
 from pathlib import Path
 from typing import Annotated, Optional
 
@@ -159,12 +160,20 @@ def answer(
 
     if result.needs_clarification:
         console.print(f"[yellow]Need clarification:[/yellow] {result.clarification_question}")
-        followup = typer.prompt("Please provide more context")
-        try:
-            result = _run_with_progress(f"{question}\nContext: {followup}")
-        except Exception as e:
-            console.print(f"[red]Answer engine failed: {e}[/red]")
-            raise typer.Exit(1)
+        if sys.stdin.isatty():
+            followup = typer.prompt("Please provide more context")
+            try:
+                result = _run_with_progress(f"{question}\nContext: {followup}")
+            except Exception as e:
+                console.print(f"[red]Answer engine failed: {e}[/red]")
+                raise typer.Exit(1)
+        else:
+            console.print("[yellow]Non-interactive mode — skipping clarification, proceeding with original question.[/yellow]")
+            try:
+                result = _run_with_progress(question)
+            except Exception as e:
+                console.print(f"[red]Answer engine failed: {e}[/red]")
+                raise typer.Exit(1)
 
     console.print(Markdown(result.answer_md))
 
