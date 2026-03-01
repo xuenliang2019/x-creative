@@ -209,6 +209,41 @@ class TestCheckJsonMode:
         )
         assert len(result.items) == 1
 
+    def test_check_json_mode_transient_error_is_warn(self) -> None:
+        """Transient errors (429, 500, timeout) should be WARN, not FAIL."""
+        from x_creative.config.checker import CheckStatus, check_json_mode
+
+        mock_client = AsyncMock()
+        mock_client.chat.completions.create.side_effect = Exception(
+            "Error code: 429 - {'error': {'message': 'Provider returned error', "
+            "'code': 429, 'metadata': {'raw': 'rate-limited upstream'}}}"
+        )
+
+        models = ["deepseek/deepseek-v3.2-speciale"]
+        result = asyncio.run(
+            check_json_mode(models=models, _openai_client=mock_client)
+        )
+        # Should NOT fail — transient error
+        assert result.all_passed is True
+        assert result.items[0].status == CheckStatus.WARN
+        assert "transient error" in result.items[0].message
+
+    def test_check_json_mode_unsupported_error_is_fail(self) -> None:
+        """Errors explicitly about response_format not supported should be FAIL."""
+        from x_creative.config.checker import CheckStatus, check_json_mode
+
+        mock_client = AsyncMock()
+        mock_client.chat.completions.create.side_effect = Exception(
+            "response_format is not supported by this model"
+        )
+
+        models = ["bad/model"]
+        result = asyncio.run(
+            check_json_mode(models=models, _openai_client=mock_client)
+        )
+        assert result.all_passed is False
+        assert result.items[0].status == CheckStatus.FAIL
+
     def test_check_json_mode_sends_response_format(self) -> None:
         from x_creative.config.checker import check_json_mode
 

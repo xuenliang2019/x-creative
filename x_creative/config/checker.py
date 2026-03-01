@@ -426,6 +426,14 @@ async def check_models(
     return CheckResult(stage="Model Availability", items=list(items))
 
 
+def _is_json_mode_unsupported_error(error: Exception) -> bool:
+    """Return True only when the error explicitly says json_object is unsupported."""
+    text = str(error).lower()
+    return "response_format" in text and (
+        "not supported" in text or "is not available" in text or "unsupported" in text
+    )
+
+
 async def _check_json_mode_single(
     model: str,
     client: object,
@@ -447,10 +455,18 @@ async def _check_json_mode_single(
             elapsed_ms=elapsed,
         )
     except Exception as e:
+        if _is_json_mode_unsupported_error(e):
+            return CheckItem(
+                label=model,
+                status=CheckStatus.FAIL,
+                message=str(e),
+            )
+        # Transient errors (429 rate-limit, 500, timeout, etc.) — not a
+        # json_mode compatibility issue, treat as warning.
         return CheckItem(
             label=model,
-            status=CheckStatus.FAIL,
-            message=str(e),
+            status=CheckStatus.WARN,
+            message=f"transient error (json_mode may still work): {e}",
         )
 
 
