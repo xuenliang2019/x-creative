@@ -94,7 +94,7 @@ class TaskRoutingConfig(BaseSettings):
             model="google/gemini-2.5-flash",
             fallback=["deepseek/deepseek-chat-v3-0324"],
             temperature=0.2,
-            max_tokens=2048,
+            max_tokens=4096,
         )
     )
     novelty_verification: ModelConfig = Field(
@@ -102,7 +102,7 @@ class TaskRoutingConfig(BaseSettings):
             model="google/gemini-2.5-flash-lite",
             fallback=["deepseek/deepseek-chat-v3-0324"],
             temperature=0.3,
-            max_tokens=2048,
+            max_tokens=4096,
         )
     )
 

@@ -149,7 +149,6 @@ async def audit_user_constraints(
         task="constraint_compliance_audit",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.0,
-        max_tokens=2048,
     )
 
     raw_content = str(getattr(result, "content", ""))
