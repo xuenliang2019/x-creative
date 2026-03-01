@@ -2,12 +2,35 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, ValidationError
 
 from x_creative.core.types import ProblemFrame
 from x_creative.creativity.utils import extract_json_object
+
+logger = logging.getLogger(__name__)
+
+# LLMs may return verdict in non-canonical forms; normalise to Literal values.
+_VERDICT_MAP: dict[str, Literal["pass", "fail", "unknown"]] = {
+    "pass": "pass",
+    "passed": "pass",
+    "satisfied": "pass",
+    "compliant": "pass",
+    "yes": "pass",
+    "true": "pass",
+    "fail": "fail",
+    "failed": "fail",
+    "violated": "fail",
+    "non-compliant": "fail",
+    "no": "fail",
+    "false": "fail",
+    "unknown": "unknown",
+    "partial": "unknown",
+    "unclear": "unknown",
+    "n/a": "unknown",
+}
 
 
 class UserConstraintComplianceError(RuntimeError):
@@ -30,6 +53,32 @@ class ConstraintComplianceItem(BaseModel):
 class ConstraintComplianceReport(BaseModel):
     overall_pass: bool = False
     items: list[ConstraintComplianceItem] = Field(default_factory=list)
+
+
+def _normalise_item(raw: dict[str, Any]) -> dict[str, Any]:
+    """Normalise a single audit item dict so it survives Pydantic validation.
+
+    Handles:
+    - verdict case-insensitivity and synonyms (e.g. "Pass", "satisfied")
+    - field name aliases ("constraint_text" → "text")
+    - missing ``text`` field (fill with id)
+    """
+    out = dict(raw)
+
+    # Normalise verdict
+    v = str(out.get("verdict", "unknown")).strip().lower()
+    out["verdict"] = _VERDICT_MAP.get(v, "unknown")
+
+    # Field aliases: some models use "constraint_text" or "constraint" instead of "text"
+    if "text" not in out or not out["text"]:
+        for alt in ("constraint_text", "constraint", "description"):
+            if alt in out and out[alt]:
+                out["text"] = out[alt]
+                break
+        else:
+            out["text"] = str(out.get("id", ""))
+
+    return out
 
 
 def _extract_json_object(text: str) -> dict[str, Any]:
@@ -103,10 +152,28 @@ async def audit_user_constraints(
         max_tokens=2048,
     )
 
-    data = _extract_json_object(str(getattr(result, "content", "")))
+    raw_content = str(getattr(result, "content", ""))
+    data = _extract_json_object(raw_content)
+
+    if not data:
+        logger.warning(
+            "Audit: extract_json_object returned empty. Raw content:\n%s",
+            raw_content[:2000],
+        )
+
+    # Normalise each item before Pydantic validation
+    if "items" in data and isinstance(data["items"], list):
+        data["items"] = [_normalise_item(item) for item in data["items"] if isinstance(item, dict)]
+
     try:
         report = ConstraintComplianceReport.model_validate(data)
-    except ValidationError:
+    except ValidationError as exc:
+        logger.warning(
+            "Audit: Pydantic validation failed after normalisation. "
+            "data_keys=%s, error=%s",
+            list(data.keys()) if data else "empty",
+            str(exc)[:500],
+        )
         # Best-effort fallback: treat as failure and include a synthetic unknown.
         items = [
             ConstraintComplianceItem(

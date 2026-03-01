@@ -8,6 +8,7 @@ import pytest
 
 from x_creative.core.types import ConstraintSpec, Hypothesis, ProblemFrame
 from x_creative.saga.belief import BeliefState
+from x_creative.saga.constraint_compliance import _normalise_item
 
 
 class _DummyCompletion:
@@ -51,6 +52,96 @@ class _DummyTalker:
 
     async def generate(self, belief, problem):  # noqa: ANN001, ARG002
         return "# Solution v1\n\nMissing required part.\n"
+
+
+class TestNormaliseItem:
+    """Tests for _normalise_item verdict/field normalisation."""
+
+    @pytest.mark.parametrize("raw_verdict,expected", [
+        ("pass", "pass"),
+        ("Pass", "pass"),
+        ("PASS", "pass"),
+        ("passed", "pass"),
+        ("satisfied", "pass"),
+        ("compliant", "pass"),
+        ("fail", "fail"),
+        ("Failed", "fail"),
+        ("violated", "fail"),
+        ("non-compliant", "fail"),
+        ("unknown", "unknown"),
+        ("partial", "unknown"),
+        ("unclear", "unknown"),
+        ("gibberish", "unknown"),
+    ])
+    def test_verdict_normalisation(self, raw_verdict: str, expected: str) -> None:
+        item = {"id": "C1", "text": "test", "verdict": raw_verdict}
+        result = _normalise_item(item)
+        assert result["verdict"] == expected
+
+    def test_constraint_text_alias(self) -> None:
+        item = {"id": "C1", "constraint_text": "must do X", "verdict": "pass"}
+        result = _normalise_item(item)
+        assert result["text"] == "must do X"
+
+    def test_description_alias(self) -> None:
+        item = {"id": "C1", "description": "must do X", "verdict": "fail"}
+        result = _normalise_item(item)
+        assert result["text"] == "must do X"
+
+    def test_missing_text_falls_back_to_id(self) -> None:
+        item = {"id": "C1", "verdict": "pass"}
+        result = _normalise_item(item)
+        assert result["text"] == "C1"
+
+    def test_existing_text_preserved(self) -> None:
+        item = {"id": "C1", "text": "original", "constraint_text": "alt", "verdict": "pass"}
+        result = _normalise_item(item)
+        assert result["text"] == "original"
+
+
+@pytest.mark.asyncio
+async def test_audit_tolerates_non_canonical_verdicts() -> None:
+    """audit_user_constraints succeeds when LLM returns uppercase/synonym verdicts."""
+    from x_creative.saga.constraint_compliance import audit_user_constraints
+
+    router = _ScriptedRouter(
+        responses=[
+            '{"overall_pass": true, "items": [{"id":"C1","constraint_text":"must do X","verdict":"Passed","rationale":"ok"}]}',
+        ]
+    )
+    problem = ProblemFrame(
+        description="test",
+        target_domain="general",
+        structured_constraints=[
+            ConstraintSpec(text="must do X", origin="user", type="hard", priority="critical", weight=1.0),
+        ],
+    )
+    report = await audit_user_constraints(router, problem, "# Solution\n")
+    assert report.overall_pass is True
+    assert report.items[0].verdict == "pass"
+
+
+@pytest.mark.asyncio
+async def test_audit_extracts_json_from_markdown_wrapped_response() -> None:
+    """audit_user_constraints handles JSON wrapped in markdown fences with trailing commentary."""
+    from x_creative.saga.constraint_compliance import audit_user_constraints
+
+    response = (
+        "Here is my analysis:\n\n```json\n"
+        '{"overall_pass": true, "items": [{"id":"C1","text":"must do X","verdict":"pass","rationale":"ok"}]}\n'
+        "```\n\nThe strategy {mentioned above} fully complies."
+    )
+    router = _ScriptedRouter(responses=[response])
+    problem = ProblemFrame(
+        description="test",
+        target_domain="general",
+        structured_constraints=[
+            ConstraintSpec(text="must do X", origin="user", type="hard", priority="critical", weight=1.0),
+        ],
+    )
+    report = await audit_user_constraints(router, problem, "# Solution\n")
+    assert report.overall_pass is True
+    assert report.items[0].verdict == "pass"
 
 
 @pytest.mark.asyncio
