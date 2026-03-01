@@ -585,6 +585,7 @@ class Reasoner:
                 task="reasoner_step",
                 messages=messages,
                 max_tokens=512,
+                json_mode=False,
             )
             tokens = result.prompt_tokens + result.completion_tokens
             return (result.content or "").strip(), 1, tokens
@@ -1074,6 +1075,7 @@ class Reasoner:
             task="saga_adversarial",
             messages=messages,
             temperature=0.3,
+            json_mode=False,
         )
         belief.total_llm_calls += 1
         belief.total_tokens_used += result.prompt_tokens + result.completion_tokens

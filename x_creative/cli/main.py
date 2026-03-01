@@ -59,6 +59,59 @@ def main(
 
 
 # =============================================================================
+# Preflight: JSON Mode Support
+# =============================================================================
+
+
+def _run_json_mode_preflight() -> None:
+    """Verify that all json_mode=True models support response_format.
+
+    Exits with code 1 if any model fails the check.
+    """
+    from x_creative.config.checker import check_json_mode
+
+    settings = get_settings()
+    routing = settings.task_routing
+
+    json_mode_models: list[str] = []
+    for task_name in type(routing).model_fields:
+        config = getattr(routing, task_name)
+        if config.json_mode:
+            json_mode_models.append(config.model)
+            json_mode_models.extend(config.fallback)
+
+    if not json_mode_models:
+        return
+
+    provider = settings.default_provider
+    if provider == "openrouter":
+        api_key = settings.openrouter.api_key.get_secret_value()
+        base_url = settings.openrouter.base_url
+    else:
+        api_key = settings.yunwu.api_key.get_secret_value()
+        base_url = settings.yunwu.base_url
+
+    result = asyncio.run(check_json_mode(
+        models=json_mode_models,
+        api_key=api_key,
+        base_url=base_url,
+    ))
+
+    if not result.all_passed:
+        from x_creative.config.checker import CheckStatus
+
+        console.print("\n[red]JSON mode preflight check failed:[/red]")
+        for item in result.items:
+            if item.status == CheckStatus.FAIL:
+                console.print(f"  [red]\u2717[/red] {item.label}: {item.message}")
+        console.print(
+            "\n[yellow]Hint: set JSON_MODE=false for affected tasks in .env, "
+            "or switch to a model that supports response_format.[/yellow]"
+        )
+        raise typer.Exit(1)
+
+
+# =============================================================================
 # Generate Command
 # =============================================================================
 
@@ -105,6 +158,9 @@ def generate(
         transform_space_budget_per_round=settings.transform_space_budget_per_round,
         hyperpath_expand_topN=settings.hyperpath_expand_topN,
     )
+
+    # Preflight: verify JSON mode support
+    _run_json_mode_preflight()
 
     console.print(Panel(f"[bold]Problem:[/bold] {problem}", title="X-Creative"))
 
@@ -327,6 +383,7 @@ def config_check(
         CheckResult,
         CheckStatus,
         check_connectivity,
+        check_json_mode,
         check_models,
         check_static,
     )
@@ -395,6 +452,24 @@ def config_check(
     _render(models_result)
     if not models_result.all_passed:
         has_failure = True
+
+    # Stage 4: JSON Mode Support
+    json_mode_models: list[str] = []
+    for task_name in type(routing).model_fields:
+        config = getattr(routing, task_name)
+        if config.json_mode:
+            json_mode_models.append(config.model)
+            json_mode_models.extend(config.fallback)
+
+    if json_mode_models:
+        json_result = asyncio.run(check_json_mode(
+            models=json_mode_models,
+            api_key=api_key,
+            base_url=base_url,
+        ))
+        _render(json_result)
+        if not json_result.all_passed:
+            has_failure = True
 
     # Summary
     if has_failure:

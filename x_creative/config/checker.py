@@ -424,3 +424,73 @@ async def check_models(
             await client.close()
 
     return CheckResult(stage="Model Availability", items=list(items))
+
+
+async def _check_json_mode_single(
+    model: str,
+    client: object,
+) -> CheckItem:
+    """Check a single model supports response_format=json_object."""
+    try:
+        t0 = time.monotonic()
+        await client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": "Return JSON: {\"ok\":true}"}],
+            max_tokens=16,
+            response_format={"type": "json_object"},
+        )
+        elapsed = (time.monotonic() - t0) * 1000
+        return CheckItem(
+            label=model,
+            status=CheckStatus.PASS,
+            message=f"OK ({elapsed:.0f}ms)",
+            elapsed_ms=elapsed,
+        )
+    except Exception as e:
+        return CheckItem(
+            label=model,
+            status=CheckStatus.FAIL,
+            message=str(e),
+        )
+
+
+async def check_json_mode(
+    models: list[str],
+    *,
+    api_key: str | None = None,
+    base_url: str | None = None,
+    _openai_client: object | None = None,
+) -> CheckResult:
+    """Stage 4: Verify each model supports response_format=json_object.
+
+    Sends concurrent minimal completion requests with response_format set.
+    _openai_client is for testing injection.
+    """
+    from x_creative.config.settings import get_settings
+    from openai import AsyncOpenAI
+
+    unique_models = list(dict.fromkeys(models))  # preserve order, deduplicate
+
+    if _openai_client is not None:
+        client = _openai_client
+        own_client = False
+    else:
+        settings = get_settings()
+        provider = settings.default_provider
+        if provider == "openrouter":
+            _api_key = api_key or settings.openrouter.api_key.get_secret_value()
+            _base_url = base_url or settings.openrouter.base_url
+        else:
+            _api_key = api_key or settings.yunwu.api_key.get_secret_value()
+            _base_url = base_url or settings.yunwu.base_url
+        client = AsyncOpenAI(api_key=_api_key, base_url=_base_url)
+        own_client = True
+
+    try:
+        tasks = [_check_json_mode_single(m, client) for m in unique_models]
+        items = await _asyncio.gather(*tasks)
+    finally:
+        if own_client:
+            await client.close()
+
+    return CheckResult(stage="JSON Mode Support", items=list(items))

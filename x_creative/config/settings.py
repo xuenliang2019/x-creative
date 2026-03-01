@@ -23,6 +23,7 @@ class ModelConfig(BaseSettings):
     fallback: list[str] = Field(default_factory=list)
     temperature: float = 0.7
     max_tokens: int = 4096
+    json_mode: bool = False
 
 
 class TaskRoutingConfig(BaseSettings):
@@ -63,6 +64,7 @@ class TaskRoutingConfig(BaseSettings):
             model="google/gemini-2.5-pro",
             fallback=["anthropic/claude-sonnet-4"],
             temperature=0.9,
+            json_mode=True,
         )
     )
     analogical_mapping: ModelConfig = Field(
@@ -70,6 +72,7 @@ class TaskRoutingConfig(BaseSettings):
             model="google/gemini-2.5-flash",
             fallback=["deepseek/deepseek-chat-v3-0324"],
             temperature=0.7,
+            json_mode=True,
         )
     )
     structured_search: ModelConfig = Field(
@@ -77,6 +80,7 @@ class TaskRoutingConfig(BaseSettings):
             model="google/gemini-2.5-flash",
             fallback=["deepseek/deepseek-chat-v3-0324"],
             temperature=0.5,
+            json_mode=True,
         )
     )
     hypothesis_scoring: ModelConfig = Field(
@@ -84,6 +88,7 @@ class TaskRoutingConfig(BaseSettings):
             model="google/gemini-2.5-flash-lite",
             fallback=["deepseek/deepseek-chat-v3-0324"],
             temperature=0.3,
+            json_mode=True,
         )
     )
     code_generation: ModelConfig = Field(
@@ -105,6 +110,7 @@ class TaskRoutingConfig(BaseSettings):
             model="deepseek/deepseek-chat-v3-0324",
             fallback=["google/gemini-2.5-flash-lite"],
             temperature=0.2,
+            json_mode=True,
         )
     )
     logic_verification: ModelConfig = Field(
@@ -113,6 +119,7 @@ class TaskRoutingConfig(BaseSettings):
             fallback=["deepseek/deepseek-chat-v3-0324"],
             temperature=0.2,
             max_tokens=8192,
+            json_mode=True,
         )
     )
     novelty_verification: ModelConfig = Field(
@@ -121,6 +128,7 @@ class TaskRoutingConfig(BaseSettings):
             fallback=["deepseek/deepseek-chat-v3-0324"],
             temperature=0.3,
             max_tokens=8192,
+            json_mode=True,
         )
     )
 
@@ -131,6 +139,7 @@ class TaskRoutingConfig(BaseSettings):
             fallback=["google/gemini-2.5-flash"],
             temperature=0.4,
             max_tokens=4096,
+            json_mode=True,
         )
     )
     saga_checkpoint: ModelConfig = Field(
@@ -139,6 +148,7 @@ class TaskRoutingConfig(BaseSettings):
             fallback=["deepseek/deepseek-chat-v3-0324"],
             temperature=0.2,
             max_tokens=2048,
+            json_mode=True,
         )
     )
     saga_deep_audit: ModelConfig = Field(
@@ -147,6 +157,7 @@ class TaskRoutingConfig(BaseSettings):
             fallback=["deepseek/deepseek-chat-v3-0324"],
             temperature=0.3,
             max_tokens=4096,
+            json_mode=True,
         )
     )
 
@@ -157,6 +168,7 @@ class TaskRoutingConfig(BaseSettings):
             fallback=["deepseek/deepseek-chat-v3-0324"],
             temperature=0.4,
             max_tokens=4096,
+            json_mode=True,
         )
     )
 
@@ -167,6 +179,7 @@ class TaskRoutingConfig(BaseSettings):
             fallback=["deepseek/deepseek-r1"],
             temperature=0.8,
             max_tokens=4096,
+            json_mode=True,
         )
     )
     transform_space: ModelConfig = Field(
@@ -175,6 +188,7 @@ class TaskRoutingConfig(BaseSettings):
             fallback=["deepseek/deepseek-chat-v3-0324"],
             temperature=0.6,
             max_tokens=4096,
+            json_mode=True,
         )
     )
 
@@ -185,6 +199,7 @@ class TaskRoutingConfig(BaseSettings):
             fallback=["google/gemini-2.5-pro"],
             temperature=0.3,
             max_tokens=4096,
+            json_mode=True,
         )
     )
     talker_output: ModelConfig = Field(
@@ -203,6 +218,7 @@ class TaskRoutingConfig(BaseSettings):
             fallback=["deepseek/deepseek-chat-v3-0324"],
             temperature=0.3,
             max_tokens=4096,
+            json_mode=True,
         )
     )
     constraint_compliance_revision: ModelConfig = Field(

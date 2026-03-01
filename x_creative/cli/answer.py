@@ -12,10 +12,57 @@ from x_creative.answer.engine import AnswerEngine
 from x_creative.answer.constraint_preflight import UserConstraintConflictError
 from x_creative.answer.types import AnswerConfig
 from x_creative.cli.progress import AnswerProgress
+from x_creative.config.settings import get_settings
 from x_creative.saga.constraint_compliance import UserConstraintComplianceError
 
 console = Console()
 app = typer.Typer(help="Single-entry deep research")
+
+
+def _run_json_mode_preflight() -> None:
+    """Verify that all json_mode=True models support response_format.
+
+    Exits with code 1 if any model fails the check.
+    """
+    from x_creative.config.checker import check_json_mode, CheckStatus
+
+    settings = get_settings()
+    routing = settings.task_routing
+
+    json_mode_models: list[str] = []
+    for task_name in type(routing).model_fields:
+        config = getattr(routing, task_name)
+        if config.json_mode:
+            json_mode_models.append(config.model)
+            json_mode_models.extend(config.fallback)
+
+    if not json_mode_models:
+        return
+
+    provider = settings.default_provider
+    if provider == "openrouter":
+        api_key = settings.openrouter.api_key.get_secret_value()
+        base_url = settings.openrouter.base_url
+    else:
+        api_key = settings.yunwu.api_key.get_secret_value()
+        base_url = settings.yunwu.base_url
+
+    result = asyncio.run(check_json_mode(
+        models=json_mode_models,
+        api_key=api_key,
+        base_url=base_url,
+    ))
+
+    if not result.all_passed:
+        console.print("\n[red]JSON mode preflight check failed:[/red]")
+        for item in result.items:
+            if item.status == CheckStatus.FAIL:
+                console.print(f"  [red]\u2717[/red] {item.label}: {item.message}")
+        console.print(
+            "\n[yellow]Hint: set JSON_MODE=false for affected tasks in .env, "
+            "or switch to a model that supports response_format.[/yellow]"
+        )
+        raise typer.Exit(1)
 
 
 @app.callback(invoke_without_command=True)
@@ -53,6 +100,9 @@ def answer(
         except OSError as e:
             console.print(f"[red]Cannot create output directory {output.parent}: {e}[/red]")
             raise typer.Exit(1)
+
+    # Preflight: verify JSON mode support
+    _run_json_mode_preflight()
 
     engine = AnswerEngine(config=config)
 

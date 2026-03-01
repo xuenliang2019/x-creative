@@ -41,7 +41,8 @@ class TestCLIAnswer:
             session_id="test-session",
         )
 
-        with patch("x_creative.cli.answer.AnswerEngine") as MockEngine:
+        with patch("x_creative.cli.answer._run_json_mode_preflight"), \
+             patch("x_creative.cli.answer.AnswerEngine") as MockEngine:
             mock_engine = MockEngine.return_value
             mock_engine.answer = AsyncMock(return_value=mock_pack)
 
@@ -61,7 +62,8 @@ class TestCLIAnswer:
             session_id="test-session",
         )
 
-        with patch("x_creative.cli.answer.AnswerEngine") as MockEngine:
+        with patch("x_creative.cli.answer._run_json_mode_preflight"), \
+             patch("x_creative.cli.answer.AnswerEngine") as MockEngine:
             mock_engine = MockEngine.return_value
             mock_engine.answer = AsyncMock(return_value=mock_pack)
 
@@ -84,7 +86,8 @@ class TestCLIAnswer:
             session_id="test-session",
         )
 
-        with patch("x_creative.cli.answer.AnswerEngine") as MockEngine:
+        with patch("x_creative.cli.answer._run_json_mode_preflight"), \
+             patch("x_creative.cli.answer.AnswerEngine") as MockEngine:
             mock_engine = MockEngine.return_value
             mock_engine.answer = AsyncMock(return_value=mock_pack)
 
@@ -117,7 +120,8 @@ class TestCLIAnswer:
             ],
         }
 
-        with patch("x_creative.cli.answer.AnswerEngine") as MockEngine:
+        with patch("x_creative.cli.answer._run_json_mode_preflight"), \
+             patch("x_creative.cli.answer.AnswerEngine") as MockEngine:
             mock_engine = MockEngine.return_value
             mock_engine.answer = AsyncMock(side_effect=UserConstraintConflictError(report))
 
@@ -148,7 +152,8 @@ class TestCLIAnswer:
             },
         }
 
-        with patch("x_creative.cli.answer.AnswerEngine") as MockEngine:
+        with patch("x_creative.cli.answer._run_json_mode_preflight"), \
+             patch("x_creative.cli.answer.AnswerEngine") as MockEngine:
             mock_engine = MockEngine.return_value
             mock_engine.answer = AsyncMock(side_effect=UserConstraintComplianceError(report))
 

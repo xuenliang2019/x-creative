@@ -68,7 +68,8 @@ class TestGenerateCommand:
                 )
             ]
 
-            with patch("x_creative.cli.main.asyncio.run", return_value=mock_generate.return_value):
+            with patch("x_creative.cli.main._run_json_mode_preflight"), \
+                 patch("x_creative.cli.main.asyncio.run", return_value=mock_generate.return_value):
                 result = runner.invoke(
                     app,
                     ["generate", "设计一个能实现病毒式传播的开源命令行工具", "--num-hypotheses", "5"],
@@ -81,7 +82,8 @@ class TestGenerateCommand:
         """Test generate with various options."""
         from x_creative.cli.main import app
 
-        with patch("x_creative.cli.main.asyncio.run", return_value=[]):
+        with patch("x_creative.cli.main._run_json_mode_preflight"), \
+             patch("x_creative.cli.main.asyncio.run", return_value=[]):
             result = runner.invoke(
                 app,
                 [

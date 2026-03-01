@@ -115,6 +115,7 @@ class ModelRouter:
         temperature: float | None = None,
         max_tokens: int | None = None,
         model_override: str | None = None,
+        json_mode: bool | None = None,
         **kwargs: Any,
     ) -> CompletionResult:
         """Make a completion with automatic fallback on failure.
@@ -126,6 +127,8 @@ class ModelRouter:
             max_tokens: Override max tokens (uses task default if None).
             model_override: If set, use this model instead of the task's
                 primary model. Fallback chain from task config is preserved.
+            json_mode: Override json_mode (caller > task config).
+                When True, injects ``response_format={"type": "json_object"}``.
             **kwargs: Additional arguments.
 
         Returns:
@@ -135,6 +138,11 @@ class ModelRouter:
             AllModelsFailedError: If all models (primary + fallbacks) fail.
         """
         config = self.get_config(task)
+
+        # json_mode: caller override > task config
+        effective_json_mode = json_mode if json_mode is not None else config.json_mode
+        if effective_json_mode:
+            kwargs.setdefault("response_format", {"type": "json_object"})
 
         # model_override replaces the primary model but keeps fallback chain
         if model_override:
