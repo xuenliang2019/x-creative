@@ -17,6 +17,7 @@ class ReasoningPhase(str, Enum):
     HYPOTHESIS_EVALUATION = "hypothesis_evaluation"
     EVIDENCE_GATHERING = "evidence_gathering"
     CROSS_VALIDATION = "cross_validation"
+    CAUSAL_STRENGTHENING = "causal_strengthening"
     SOLUTION_PLANNING = "solution_planning"
     QUALITY_AUDIT = "quality_audit"
     BELIEF_SYNTHESIS = "belief_synthesis"
@@ -81,6 +82,15 @@ class CrossValidation(BaseModel):
     contradictions: list[dict[str, str]] = Field(default_factory=list)
     dependencies: list[dict[str, str]] = Field(default_factory=list)
     synthesis: str = ""
+
+
+class CausalStrengthening(BaseModel):
+    """Causal reasoning refinement output (Step 4.5 output)."""
+
+    causal_chains: list[dict[str, str]] = Field(default_factory=list)
+    confounders: list[str] = Field(default_factory=list)
+    strengthened_mechanisms: list[dict[str, str]] = Field(default_factory=list)
+    summary: str = ""
 
 
 class SolutionBlueprint(BaseModel):
@@ -155,6 +165,8 @@ class BeliefState(BaseModel):
     evidence: list[EvidenceItem] = Field(default_factory=list)
     # Step 4 output
     cross_validation: CrossValidation = Field(default_factory=CrossValidation)
+    # Step 4.5 output
+    causal_strengthening: CausalStrengthening = Field(default_factory=CausalStrengthening)
     # Step 5 output
     solution_blueprint: SolutionBlueprint = Field(default_factory=SolutionBlueprint)
     # Step 6 output

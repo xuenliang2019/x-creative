@@ -443,6 +443,7 @@ class Settings(BaseSettings):
     # VERIFY confidence controls
     multi_sample_evaluations: int = Field(default=3, ge=1, le=9)
     position_bias_confidence_factor: float = Field(default=0.7, ge=0.0, le=1.0)
+    causal_rigor_threshold: float = Field(default=5.5, ge=0.0, le=10.0)
 
     # HKG settings
     hkg_enabled: bool = False

@@ -182,6 +182,7 @@ class CreativityEngine:
             router=self._router,
             num_samples=self._settings.multi_sample_evaluations,
             position_bias_confidence_factor=self._settings.position_bias_confidence_factor,
+            causal_rigor_threshold=self._settings.causal_rigor_threshold,
         )
         self._novelty_verifier = novelty_verifier or NoveltyVerifier(router=self._router)
         self._search_validator = search_validator or SearchValidator()

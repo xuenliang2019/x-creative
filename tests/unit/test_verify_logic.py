@@ -426,6 +426,89 @@ class TestLogicVerifier:
             assert result.passed is False
 
 
+class TestCausalRigorThreshold:
+    """Tests for per-dimension causal_rigor threshold."""
+
+    @pytest.mark.asyncio
+    async def test_causal_rigor_uses_separate_threshold(
+        self,
+        sample_hypothesis: Hypothesis,
+        sample_problem_frame: ProblemFrame,
+    ) -> None:
+        """causal_rigor=5.5 passes with causal_rigor_threshold=5.5,
+        but analogy_validity=5.5 fails with default 6.0."""
+        verifier = LogicVerifier(causal_rigor_threshold=5.5)
+
+        mock_response = CompletionResult(
+            content=json.dumps({
+                "analogy_validity": 5.5,
+                "analogy_explanation": "Borderline analogy",
+                "internal_consistency": 7.0,
+                "consistency_explanation": "Consistent",
+                "causal_rigor": 5.5,
+                "causal_explanation": "Heuristic causal chain",
+                "issues": [],
+            }),
+            model="openai/gpt-5.2",
+            prompt_tokens=500,
+            completion_tokens=200,
+        )
+
+        with patch.object(verifier, "_router") as mock_router:
+            mock_router.complete = AsyncMock(return_value=mock_response)
+            result = await verifier.verify(sample_hypothesis, sample_problem_frame)
+
+            # causal_rigor=5.5 passes (>= 5.5 threshold)
+            # but analogy_validity=5.5 fails (< 6.0 default threshold)
+            assert result.passed is False
+            assert result.causal_rigor == 5.5
+            assert result.analogy_validity == 5.5
+
+    @pytest.mark.asyncio
+    async def test_causal_rigor_passes_when_only_causal_at_lower_threshold(
+        self,
+        sample_hypothesis: Hypothesis,
+        sample_problem_frame: ProblemFrame,
+    ) -> None:
+        """All dimensions pass when analogy/consistency >= 6.0
+        and causal_rigor >= 5.5 (separate threshold)."""
+        verifier = LogicVerifier(causal_rigor_threshold=5.5)
+
+        mock_response = CompletionResult(
+            content=json.dumps({
+                "analogy_validity": 6.5,
+                "analogy_explanation": "Valid analogy",
+                "internal_consistency": 7.0,
+                "consistency_explanation": "Consistent",
+                "causal_rigor": 5.5,
+                "causal_explanation": "Heuristic causal chain",
+                "issues": [],
+            }),
+            model="openai/gpt-5.2",
+            prompt_tokens=500,
+            completion_tokens=200,
+        )
+
+        with patch.object(verifier, "_router") as mock_router:
+            mock_router.complete = AsyncMock(return_value=mock_response)
+            result = await verifier.verify(sample_hypothesis, sample_problem_frame)
+
+            assert result.passed is True
+
+    def test_causal_rigor_threshold_defaults_to_pass_threshold(self) -> None:
+        """When no causal_rigor_threshold is given, it defaults to pass_threshold."""
+        verifier = LogicVerifier(pass_threshold=7.0)
+        assert verifier._causal_rigor_threshold == 7.0
+
+        verifier_default = LogicVerifier()
+        assert verifier_default._causal_rigor_threshold == 6.0
+
+    def test_causal_rigor_threshold_honors_explicit_zero(self) -> None:
+        """Explicit 0.0 must not be silently replaced by pass_threshold."""
+        verifier = LogicVerifier(causal_rigor_threshold=0.0)
+        assert verifier._causal_rigor_threshold == 0.0
+
+
 class TestLogicVerdictIntegration:
     """Integration tests for LogicVerdict with LogicVerifier."""
 

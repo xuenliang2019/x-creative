@@ -36,15 +36,21 @@ class LogicVerifier:
         num_samples: int | None = None,
         position_std_threshold: float | None = None,
         position_bias_confidence_factor: float = 0.7,
+        causal_rigor_threshold: float | None = None,
     ) -> None:
         """Initialize the LogicVerifier.
 
         Args:
             router: Model router to use for LLM calls. If None, creates one.
             pass_threshold: Minimum score for each dimension to pass. Defaults to 6.0.
+            causal_rigor_threshold: Separate threshold for causal_rigor dimension.
+                Defaults to pass_threshold when not specified.
         """
         self._router = router or ModelRouter()
         self._pass_threshold = pass_threshold or self.PASS_THRESHOLD
+        self._causal_rigor_threshold = (
+            causal_rigor_threshold if causal_rigor_threshold is not None else self._pass_threshold
+        )
         self._num_samples = int(num_samples or self.NUM_SAMPLES)
         self._position_diff_threshold = float(
             position_std_threshold or self.POSITION_DIFF_THRESHOLD
@@ -299,7 +305,7 @@ Please score the hypothesis on these dimensions:
         passed = all([
             analogy_validity >= self._pass_threshold,
             internal_consistency >= self._pass_threshold,
-            causal_rigor >= self._pass_threshold,
+            causal_rigor >= self._causal_rigor_threshold,
         ])
 
         # Build reasoning from explanations
@@ -425,7 +431,7 @@ Please score the hypothesis on these dimensions:
         passed = all([
             analogy_avg >= self._pass_threshold,
             consistency_avg >= self._pass_threshold,
-            causal_avg >= self._pass_threshold,
+            causal_avg >= self._causal_rigor_threshold,
         ])
 
         return LogicVerdict(

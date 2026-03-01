@@ -926,3 +926,137 @@ async def test_auditor_fresh_domain_no_false_rejections() -> None:
     # Should NOT be flagged — no os_license_compliance violation possible
     flagged = [d for d in directives if d.directive_type == DirectiveType.FLAG_HYPOTHESIS]
     assert not flagged
+
+
+@pytest.mark.asyncio
+async def test_reasoner_runs_causal_strengthening_step() -> None:
+    """Reasoner should populate belief.causal_strengthening after reason()."""
+    import json
+    from x_creative.core.types import Hypothesis, ProblemFrame
+    from x_creative.saga.reasoner import Reasoner
+
+    class _MockResult:
+        def __init__(self, content: str) -> None:
+            self.content = content
+            self.prompt_tokens = 10
+            self.completion_tokens = 20
+            self.finish_reason = "stop"
+            self.model = "mock/model"
+
+    # Build a mock router that returns valid JSON for each step
+    mock_router = MagicMock()
+
+    step_responses = [
+        # Step 1: Problem Analysis
+        json.dumps({
+            "core_challenge": "test challenge",
+            "sub_problems": [],
+            "success_criteria": [],
+            "implicit_constraints": [],
+            "domain_context": "test",
+        }),
+        # Step 2: Hypothesis Evaluation
+        json.dumps([{
+            "hypothesis_id": "H-001",
+            "description": "test hyp",
+            "source_domain": "physics",
+            "relevance": "high",
+            "strength": "strong",
+            "weakness": "none",
+            "actionability": "high",
+            "priority": 1,
+        }]),
+        # Step 3: Evidence Gathering (assessment call)
+        "证据质量良好",
+        # Step 4: Cross Validation
+        json.dumps({
+            "complementary_pairs": [],
+            "contradictions": [],
+            "dependencies": [],
+            "synthesis": "test synthesis",
+        }),
+        # Step 5: Causal Strengthening
+        json.dumps({
+            "causal_chains": [{"hypothesis_id": "H-001", "mechanism": "A→B→C"}],
+            "confounders": ["selection bias"],
+            "strengthened_mechanisms": [
+                {"hypothesis_id": "H-001", "original": "weak A→C", "strengthened": "A→B→C with evidence"}
+            ],
+            "summary": "Causal chains strengthened",
+        }),
+        # Step 6: Solution Planning
+        json.dumps({
+            "executive_summary": "test solution",
+            "key_insights": ["insight 1"],
+            "phases": [{"name": "Phase 1", "steps": ["step 1"], "metrics": ["metric 1"]}],
+            "dependencies": [],
+            "tools_and_resources": [],
+        }),
+        # Step 7: Quality Audit
+        json.dumps({
+            "verdict": "approve",
+            "risks": [],
+            "evidence_gaps": [],
+            "hallucination_flags": [],
+            "improvement_suggestions": [],
+        }),
+    ]
+
+    call_counter = {"idx": 0}
+
+    async def _mock_complete(**kwargs):
+        idx = call_counter["idx"]
+        call_counter["idx"] += 1
+        if idx < len(step_responses):
+            return _MockResult(step_responses[idx])
+        return _MockResult("{}")
+
+    mock_router.complete = AsyncMock(side_effect=_mock_complete)
+
+    # Mock SearchValidator to avoid real web calls
+    from unittest.mock import patch
+    from x_creative.core.types import NoveltyVerdict
+
+    mock_verdict = NoveltyVerdict(
+        score=7.0,
+        searched=True,
+        novelty_analysis="novel",
+        similar_works=[],
+    )
+
+    with patch("x_creative.saga.reasoner.SearchValidator") as MockSV:
+        mock_sv_instance = AsyncMock()
+        mock_sv_instance.validate = AsyncMock(return_value=mock_verdict)
+        mock_sv_instance.__aenter__ = AsyncMock(return_value=mock_sv_instance)
+        mock_sv_instance.__aexit__ = AsyncMock(return_value=False)
+        MockSV.return_value = mock_sv_instance
+
+        with patch("x_creative.saga.reasoner.get_settings") as mock_settings:
+            mock_settings.return_value = MagicMock(max_constraints=15)
+
+            reasoner = Reasoner(router=mock_router)
+            problem = ProblemFrame(description="test problem", target_domain="test")
+            hypothesis = Hypothesis(
+                id="H-001",
+                description="Test hypothesis",
+                source_domain="physics",
+                source_structure="entropy",
+                analogy_explanation="test analogy",
+                observable="test_metric",
+            )
+
+            belief = await reasoner.reason(
+                problem=problem,
+                verify_markdown="# Test verify",
+                hypotheses=[hypothesis],
+                max_ideas=1,
+                inner_max=1,
+            )
+
+    # Verify causal_strengthening is populated
+    cs = belief.causal_strengthening
+    assert cs.summary == "Causal chains strengthened"
+    assert len(cs.causal_chains) == 1
+    assert cs.causal_chains[0]["mechanism"] == "A→B→C"
+    assert "selection bias" in cs.confounders
+    assert len(cs.strengthened_mechanisms) == 1

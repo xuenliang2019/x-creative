@@ -189,6 +189,9 @@ class Talker:
         # Cross validation
         payload["cross_validation"] = belief.cross_validation.model_dump()
 
+        # Causal strengthening
+        payload["causal_strengthening"] = belief.causal_strengthening.model_dump()
+
         # Solution blueprint
         payload["solution_blueprint"] = belief.solution_blueprint.model_dump()
 
