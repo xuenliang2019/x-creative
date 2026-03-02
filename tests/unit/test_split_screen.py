@@ -386,6 +386,8 @@ class TestLogFileSupport:
 
         content = log_path.read_text(encoding="utf-8")
         assert "file_test" in content
+        # File content must be free of ANSI escape codes
+        assert "\x1b[" not in content
 
     def test_log_buffer_handler_writes_to_file(self, tmp_path: Path):
         """_LogBufferHandler writes formatted messages to file_handle when provided."""
@@ -450,3 +452,4 @@ class TestLogFileSupport:
 
         content = log_path.read_text(encoding="utf-8")
         assert "engine_log_line" in content
+        assert "\x1b[" not in content

@@ -18,6 +18,7 @@ import sys
 import time
 from collections import deque
 from dataclasses import dataclass, field
+import re
 from pathlib import Path
 from typing import IO, Any, Callable, Coroutine
 
@@ -28,6 +29,7 @@ from rich.text import Text
 from x_creative.cli.progress import AnswerProgress
 
 _MIN_SPLIT_WIDTH = 120
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 
 # ── Data types ──────────────────────────────────────────────────────────
@@ -73,7 +75,7 @@ class _LogBufferHandler(logging.Handler):
             msg = self.format(record)
             self._buffer.append(msg)
             if self._file_handle is not None:
-                self._file_handle.write(msg + "\n")
+                self._file_handle.write(_ANSI_RE.sub("", msg) + "\n")
                 self._file_handle.flush()
         except Exception:
             self.handleError(record)
@@ -94,7 +96,7 @@ def _buffer_processor(
         rendered = renderer(logger, method_name, event_dict)
         buffer.append(rendered)
         if file_handle is not None:
-            file_handle.write(rendered + "\n")
+            file_handle.write(_ANSI_RE.sub("", rendered) + "\n")
             file_handle.flush()
         raise structlog.DropEvent
 
