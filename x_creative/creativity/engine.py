@@ -32,21 +32,29 @@ logger = structlog.get_logger()
 ProgressCallback = Callable[[str, dict[str, Any]], Awaitable[None] | None]
 
 
+def _best_score(h: Any) -> float:
+    """Return the best available score for a hypothesis.
+
+    Priority: final_score > composite_score() > quick_score > 0.
+    """
+    if h.final_score is not None:
+        return h.final_score
+    cs = h.composite_score() if callable(getattr(h, "composite_score", None)) else 0.0
+    if cs > 0.0:
+        return cs
+    if getattr(h, "quick_score", None) is not None:
+        return h.quick_score
+    return 0.0
+
+
 def _build_top_hypotheses(hypotheses: list[Any], top_n: int = 5) -> list[dict[str, Any]]:
     """Extract top-N hypothesis summaries for progress display."""
-    sorted_hyps = sorted(
-        hypotheses,
-        key=lambda h: h.final_score if h.final_score is not None else (h.composite_score() if callable(getattr(h, "composite_score", None)) else 0),
-        reverse=True,
-    )[:top_n]
+    sorted_hyps = sorted(hypotheses, key=_best_score, reverse=True)[:top_n]
     return [
         {
             "id": h.id,
             "description": (h.description or "")[:80],
-            "score": round(
-                h.final_score if h.final_score is not None else (h.composite_score() if callable(getattr(h, "composite_score", None)) else 0),
-                2,
-            ),
+            "score": round(_best_score(h), 2),
             "source_domain": h.source_domain or "",
             "verify_status": h.verify_status.value if h.verify_status else "",
         }

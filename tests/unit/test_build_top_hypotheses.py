@@ -17,6 +17,7 @@ def _hyp(
     hypothesis_id: str,
     *,
     final_score: float | None = None,
+    quick_score: float | None = None,
     description: str = "desc",
     source_domain: str = "bio",
     verify_status: VerifyStatus | None = None,
@@ -29,6 +30,7 @@ def _hyp(
         analogy_explanation="analogy",
         observable="obs",
         final_score=final_score,
+        quick_score=quick_score,
         verify_status=verify_status,
     )
 
@@ -110,3 +112,23 @@ class TestBuildTopHypotheses:
         result = build_fn([h2, h1], top_n=2)
         assert result[0]["id"] == "h1"
         assert result[1]["id"] == "h2"
+
+    def test_falls_back_to_quick_score(self, build_fn):
+        """When final_score and composite_score are absent, quick_score is used."""
+        h = _hyp("h1", quick_score=6.5)
+        result = build_fn([h])
+        assert result[0]["score"] == 6.5
+
+    def test_quick_score_sorting(self, build_fn):
+        """Hypotheses should sort by quick_score when no other scores exist."""
+        h1 = _hyp("h1", quick_score=3.0)
+        h2 = _hyp("h2", quick_score=7.0)
+        h3 = _hyp("h3", quick_score=5.0)
+        result = build_fn([h1, h2, h3], top_n=3)
+        assert [r["score"] for r in result] == [7.0, 5.0, 3.0]
+
+    def test_final_score_preferred_over_quick_score(self, build_fn):
+        """final_score takes priority over quick_score."""
+        h = _hyp("h1", final_score=9.0, quick_score=3.0)
+        result = build_fn([h])
+        assert result[0]["score"] == 9.0
