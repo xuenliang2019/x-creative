@@ -189,3 +189,45 @@ class TestNonSAGAEventPayloads:
 
         assert "top_hypotheses" in reported.get("search_round_completed", {}), \
             f"search_round_completed missing top_hypotheses"
+
+
+# ---------------------------------------------------------------------------
+# on_scoring_complete callback (score_and_verify_batch)
+# ---------------------------------------------------------------------------
+
+
+class TestScoringCompleteCallback:
+    """Verify score_and_verify_batch calls on_scoring_complete between phases."""
+
+    @pytest.mark.asyncio
+    async def test_on_scoring_complete_called_with_scored_list(self) -> None:
+        engine = CreativityEngine()
+        raw = [_hyp("h1"), _hyp("h2")]
+        scored = [_hyp("h1", final_score=7.0), _hyp("h2", final_score=6.5)]
+
+        captured: list[list[Hypothesis]] = []
+
+        async def _on_complete(hyps: list[Hypothesis]) -> None:
+            captured.append(list(hyps))
+
+        with patch.object(engine._verify, "score_batch", AsyncMock(return_value=scored)):
+            result = await engine.score_and_verify_batch(
+                raw,
+                problem_frame=None,
+                on_scoring_complete=_on_complete,
+            )
+
+        assert len(captured) == 1
+        assert len(captured[0]) == 2
+        assert captured[0][0].final_score == 7.0
+
+    @pytest.mark.asyncio
+    async def test_on_scoring_complete_not_required(self) -> None:
+        engine = CreativityEngine()
+        raw = [_hyp("h1")]
+        scored = [_hyp("h1", final_score=7.0)]
+
+        with patch.object(engine._verify, "score_batch", AsyncMock(return_value=scored)):
+            result = await engine.score_and_verify_batch(raw, problem_frame=None)
+
+        assert len(result) == 1

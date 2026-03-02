@@ -523,12 +523,17 @@ class CreativityEngine:
         *,
         score_progress_callback: Callable[[int, int, str], Awaitable[None] | None] | None = None,
         dual_verify_progress_callback: Callable[[int, int, str], Awaitable[None] | None] | None = None,
+        on_scoring_complete: Callable[[list[Hypothesis]], Awaitable[None] | None] | None = None,
     ) -> list[Hypothesis]:
         """Score hypotheses and optionally run dual-model verification."""
         scored = await self._verify.score_batch(
             hypotheses,
             on_progress=score_progress_callback,
         )
+        if on_scoring_complete is not None:
+            result = on_scoring_complete(scored)
+            if inspect.isawaitable(result):
+                await result
         if problem_frame is None:
             return scored
         verified = await self._verify_batch_dual_model(

@@ -256,11 +256,14 @@ class FastAgent:
                 payload={"score_total": len(expanded)},
             )
 
+            self._verify_scored_snapshot: list[Any] = []
+
             scored = await self._engine.score_and_verify_batch(
                 expanded,
                 problem_frame=problem,
                 score_progress_callback=self._on_verify_score_progress,
                 dual_verify_progress_callback=self._on_verify_dual_progress,
+                on_scoring_complete=self._on_scoring_phase_complete,
             )
             scored = self._apply_adversarial_adjustments(scored)
             self._state.hypotheses_pool = [h.model_dump() for h in scored]
@@ -284,11 +287,13 @@ class FastAgent:
             # Re-score batch when requested by Slow Agent challenge flow.
             if self._rescore_requested:
                 self._rescore_requested = False
+                self._verify_scored_snapshot = []
                 scored = await self._engine.score_and_verify_batch(
                     expanded,
                     problem_frame=problem,
                     score_progress_callback=self._on_verify_score_progress,
                     dual_verify_progress_callback=self._on_verify_dual_progress,
+                    on_scoring_complete=self._on_scoring_phase_complete,
                 )
                 scored = self._apply_adversarial_adjustments(scored)
                 scored = self._drop_critical_rejected(scored)
@@ -928,6 +933,21 @@ class FastAgent:
             },
         )
 
+    async def _on_scoring_phase_complete(
+        self, scored: list[Any],
+    ) -> None:
+        """Emit top_hypotheses after scoring completes, before dual verification."""
+        self._verify_scored_snapshot = scored
+        await self._emit_event(
+            EventType.VERIFY_HYPOTHESIS_SCORED,
+            "verify",
+            payload={
+                "phase": "scoring_complete",
+                "scored_count": len(scored),
+                "top_hypotheses": _build_top_hypotheses(scored),
+            },
+        )
+
     async def _on_verify_dual_progress(
         self,
         completed: int,
@@ -935,15 +955,20 @@ class FastAgent:
         hypothesis_id: str,
     ) -> None:
         """Bridge dual-model VERIFY progress into the EventBus for progress UI."""
+        payload: dict[str, Any] = {
+            "phase": "dual_verify",
+            "completed": completed,
+            "total": total,
+            "hypothesis_id": hypothesis_id,
+        }
+        # Include top_hypotheses periodically so the right panel stays fresh.
+        snapshot = getattr(self, "_verify_scored_snapshot", [])
+        if snapshot and (completed % 5 == 0 or completed == total):
+            payload["top_hypotheses"] = _build_top_hypotheses(snapshot)
         await self._emit_event(
             EventType.VERIFY_HYPOTHESIS_SCORED,
             "verify",
-            payload={
-                "phase": "dual_verify",
-                "completed": completed,
-                "total": total,
-                "hypothesis_id": hypothesis_id,
-            },
+            payload=payload,
         )
 
     async def _emit_event(
