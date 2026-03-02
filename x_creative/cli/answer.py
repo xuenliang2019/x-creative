@@ -13,7 +13,7 @@ from rich.markdown import Markdown
 from x_creative.answer.engine import AnswerEngine
 from x_creative.answer.constraint_preflight import UserConstraintConflictError
 from x_creative.answer.types import AnswerConfig, AnswerPack
-from x_creative.cli.progress import AnswerProgress
+from x_creative.cli.split_screen import SplitScreenProgress
 from x_creative.config.settings import get_settings
 from x_creative.saga.constraint_compliance import UserConstraintComplianceError
 
@@ -128,6 +128,7 @@ def answer(
     no_saga: Annotated[bool, typer.Option("--no-saga", help="Disable SAGA supervision")] = False,
     fresh: Annotated[bool, typer.Option("--fresh", help="Skip pre-defined domains, generate from scratch")] = False,
     output: Annotated[Optional[Path], typer.Option("--output", "-o", help="Output file path")] = None,
+    log_file: Annotated[Optional[Path], typer.Option("--log-file", help="Write log output to file")] = None,
 ) -> None:
     """Single-entry deep research: input a question, get a creative answer."""
     try:
@@ -158,8 +159,9 @@ def answer(
     engine = AnswerEngine(config=config)
 
     def _run_with_progress(q: str):
-        with AnswerProgress() as progress:
-            return asyncio.run(engine.answer(q, progress_callback=progress.callback))
+        return SplitScreenProgress(log_file=log_file).run(
+            lambda cb: engine.answer(q, progress_callback=cb)
+        )
 
     try:
         result = _run_with_progress(question)

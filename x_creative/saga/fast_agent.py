@@ -32,6 +32,29 @@ from x_creative.saga.state import GenerationMetrics, SharedCognitionState
 
 logger = structlog.get_logger()
 
+
+def _build_top_hypotheses(hypotheses: list[Any], top_n: int = 5) -> list[dict[str, Any]]:
+    """Extract top-N hypothesis summaries for progress display."""
+    sorted_hyps = sorted(
+        hypotheses,
+        key=lambda h: h.final_score if h.final_score is not None else (h.composite_score() if callable(getattr(h, "composite_score", None)) else 0),
+        reverse=True,
+    )[:top_n]
+    return [
+        {
+            "id": h.id,
+            "description": (h.description or "")[:80],
+            "score": round(
+                h.final_score if h.final_score is not None else (h.composite_score() if callable(getattr(h, "composite_score", None)) else 0),
+                2,
+            ),
+            "source_domain": h.source_domain or "",
+            "verify_status": h.verify_status.value if h.verify_status else "",
+        }
+        for h in sorted_hyps
+    ]
+
+
 _GATE_PATTERNS: dict[str, list[re.Pattern[str]]] = {
     "no_lookahead_bias": [
         re.compile(r"\bt\+1\b", re.IGNORECASE),
@@ -158,7 +181,10 @@ class FastAgent:
             await self._emit_event(
                 EventType.BISO_COMPLETED,
                 "biso",
-                payload={"hypothesis_count": len(raw_hypotheses)},
+                payload={
+                    "hypothesis_count": len(raw_hypotheses),
+                    "top_hypotheses": _build_top_hypotheses(raw_hypotheses),
+                },
                 metrics=self._extract_event_metrics(raw_hypotheses),
             )
             await self._emit_mapping_quality_events(raw_hypotheses)
@@ -199,7 +225,10 @@ class FastAgent:
             await self._emit_event(
                 EventType.SEARCH_COMPLETED,
                 "search",
-                payload={"hypothesis_count": len(expanded)},
+                payload={
+                    "hypothesis_count": len(expanded),
+                    "top_hypotheses": _build_top_hypotheses(expanded),
+                },
                 metrics=self._extract_event_metrics(expanded),
             )
 
@@ -231,7 +260,10 @@ class FastAgent:
             await self._emit_event(
                 EventType.VERIFY_BATCH_SCORED,
                 "verify",
-                payload={"scored_count": len(scored)},
+                payload={
+                    "scored_count": len(scored),
+                    "top_hypotheses": _build_top_hypotheses(scored),
+                },
                 metrics=self._extract_event_metrics(scored),
             )
             await self._emit_verify_status_events(scored)
@@ -256,7 +288,11 @@ class FastAgent:
                 await self._emit_event(
                     EventType.VERIFY_BATCH_SCORED,
                     "verify",
-                    payload={"scored_count": len(scored), "rescored": True},
+                    payload={
+                        "scored_count": len(scored),
+                        "rescored": True,
+                        "top_hypotheses": _build_top_hypotheses(scored),
+                    },
                     metrics=self._extract_event_metrics(scored),
                 )
 
@@ -291,7 +327,10 @@ class FastAgent:
             await self._emit_event(
                 EventType.VERIFY_COMPLETED,
                 "verify",
-                payload={"final_count": len(final)},
+                payload={
+                    "final_count": len(final),
+                    "top_hypotheses": _build_top_hypotheses(final),
+                },
             )
             await self._notify_checkpoint("cp6_verify_completed")
 

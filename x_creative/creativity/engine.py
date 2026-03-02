@@ -32,6 +32,28 @@ logger = structlog.get_logger()
 ProgressCallback = Callable[[str, dict[str, Any]], Awaitable[None] | None]
 
 
+def _build_top_hypotheses(hypotheses: list[Any], top_n: int = 5) -> list[dict[str, Any]]:
+    """Extract top-N hypothesis summaries for progress display."""
+    sorted_hyps = sorted(
+        hypotheses,
+        key=lambda h: h.final_score if h.final_score is not None else (h.composite_score() if callable(getattr(h, "composite_score", None)) else 0),
+        reverse=True,
+    )[:top_n]
+    return [
+        {
+            "id": h.id,
+            "description": (h.description or "")[:80],
+            "score": round(
+                h.final_score if h.final_score is not None else (h.composite_score() if callable(getattr(h, "composite_score", None)) else 0),
+                2,
+            ),
+            "source_domain": h.source_domain or "",
+            "verify_status": h.verify_status.value if h.verify_status else "",
+        }
+        for h in sorted_hyps
+    ]
+
+
 class CreativityEngine:
     """Main engine for creativity-driven hypothesis generation.
 
@@ -291,6 +313,7 @@ class CreativityEngine:
                 {
                     "pipeline_stage": "biso",
                     "hypothesis_count": len(raw_analogies),
+                    "top_hypotheses": _build_top_hypotheses(raw_analogies),
                 },
             )
             await self._score_mapping_quality(raw_analogies)
@@ -320,6 +343,7 @@ class CreativityEngine:
                         "total_rounds": int(getattr(config, "search_depth", 0) or 0),
                         "hypothesis_count": len(pool),
                         "new_count": new_count,
+                        "top_hypotheses": _build_top_hypotheses(pool),
                     },
                 )
 
@@ -338,6 +362,7 @@ class CreativityEngine:
                 {
                     "pipeline_stage": "search",
                     "hypothesis_count": len(expanded),
+                    "top_hypotheses": _build_top_hypotheses(expanded),
                 },
             )
 
@@ -402,6 +427,7 @@ class CreativityEngine:
                     "pipeline_stage": "verify",
                     "scored_count": len(scored),
                     "after_filter": len(filtered),
+                    "top_hypotheses": _build_top_hypotheses(enriched),
                 },
             )
 
