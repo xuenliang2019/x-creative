@@ -54,6 +54,7 @@ class AnswerEngine:
     ) -> AnswerPack:
         cfg = config or self.config
         settings = get_settings()
+        ModelRouter.reset_token_log()
         start_time = time.time()
         stage_total = 8
 
@@ -406,6 +407,7 @@ class AnswerEngine:
             cp3_result=cp3,
             duration_seconds=duration,
         )
+        pack.token_summary = ModelRouter.get_token_summary()
         self._save_answer_pack(session_dir, pack)
         await self._report_progress(
             progress_callback,

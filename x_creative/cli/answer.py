@@ -3,21 +3,71 @@
 import asyncio
 import sys
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Any, Optional
 
+import structlog
 import typer
 from rich.console import Console
 from rich.markdown import Markdown
 
 from x_creative.answer.engine import AnswerEngine
 from x_creative.answer.constraint_preflight import UserConstraintConflictError
-from x_creative.answer.types import AnswerConfig
+from x_creative.answer.types import AnswerConfig, AnswerPack
 from x_creative.cli.progress import AnswerProgress
 from x_creative.config.settings import get_settings
 from x_creative.saga.constraint_compliance import UserConstraintComplianceError
 
 console = Console()
 app = typer.Typer(help="Single-entry deep research")
+_summary_logger = structlog.get_logger("answer.summary")
+
+
+def _format_duration(seconds: float) -> str:
+    """Format seconds into '小时分秒' human-readable string."""
+    total = int(seconds)
+    h, remainder = divmod(total, 3600)
+    m, s = divmod(remainder, 60)
+    parts: list[str] = []
+    if h:
+        parts.append(f"{h}小时")
+    if m:
+        parts.append(f"{m}分")
+    parts.append(f"{s}秒")
+    return "".join(parts)
+
+
+def _log_run_summary(result: AnswerPack) -> None:
+    """Log token usage and timing summary after an answer run."""
+    metadata = result.answer_json.get("metadata", {})
+    duration_sec = metadata.get("duration_seconds", 0)
+    duration_str = _format_duration(duration_sec)
+
+    summary = result.token_summary
+    if not summary:
+        _summary_logger.info("run_summary", duration=duration_str, total_tokens=0)
+        return
+
+    total_tokens = summary.get("total_tokens", 0)
+
+    # Build stage/task table lines (descending by tokens)
+    by_stage_task: dict[str, Any] = summary.get("by_stage_task", {})
+    stage_lines: list[str] = []
+    for key, val in sorted(by_stage_task.items(), key=lambda x: x[1]["tokens"], reverse=True):
+        stage_lines.append(f"  {key}: {val['tokens']:,} tokens ({val['calls']} calls)")
+
+    # Build model table lines (descending by tokens)
+    by_model: dict[str, Any] = summary.get("by_model", {})
+    model_lines: list[str] = []
+    for model, val in sorted(by_model.items(), key=lambda x: x[1]["tokens"], reverse=True):
+        model_lines.append(f"  {model}: {val['tokens']:,} tokens ({val['calls']} calls)")
+
+    _summary_logger.info(
+        "run_summary",
+        duration=duration_str,
+        total_tokens=total_tokens,
+        by_stage_task="\n" + "\n".join(stage_lines) if stage_lines else "(none)",
+        by_model="\n" + "\n".join(model_lines) if model_lines else "(none)",
+    )
 
 
 def _run_json_mode_preflight() -> None:
@@ -176,6 +226,7 @@ def answer(
                 raise typer.Exit(1)
 
     console.print(Markdown(result.answer_md))
+    _log_run_summary(result)
 
     if output:
         output.write_text(result.answer_md, encoding="utf-8")

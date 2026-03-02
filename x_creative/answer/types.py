@@ -72,6 +72,7 @@ class AnswerPack:
     question: str = ""
     answer_md: str = ""
     answer_json: dict[str, Any] = field(default_factory=dict)
+    token_summary: dict[str, Any] = field(default_factory=dict)
     session_id: str = ""
     needs_clarification: bool = False
     clarification_question: str | None = None

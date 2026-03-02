@@ -1,9 +1,10 @@
 """Model routing for task-specific model selection with fallback support."""
 
 import re
-from typing import Any
+from typing import Any, ClassVar
 
 import structlog
+from structlog import contextvars
 
 from x_creative.config.settings import ModelConfig, get_settings
 from x_creative.llm.client import CompletionResult, LLMClient
@@ -59,6 +60,36 @@ def _is_context_length_error(error: Exception) -> bool:
 
 class ModelRouter:
     """Routes tasks to appropriate models with fallback support."""
+
+    _token_log: ClassVar[list[dict]] = []
+
+    @classmethod
+    def reset_token_log(cls) -> None:
+        """Clear the shared token log (call at the start of each pipeline run)."""
+        cls._token_log.clear()
+
+    @classmethod
+    def get_token_summary(cls) -> dict[str, Any]:
+        """Aggregate token usage by stage/task and by model."""
+        by_stage_task: dict[str, dict[str, int]] = {}
+        by_model: dict[str, dict[str, int]] = {}
+        total_tokens = 0
+        for rec in cls._token_log:
+            key = f"{rec['pipeline_stage']}/{rec['task']}"
+            entry = by_stage_task.setdefault(key, {"tokens": 0, "calls": 0})
+            entry["tokens"] += rec["tokens"]
+            entry["calls"] += 1
+
+            model_entry = by_model.setdefault(rec["model"], {"tokens": 0, "calls": 0})
+            model_entry["tokens"] += rec["tokens"]
+            model_entry["calls"] += 1
+
+            total_tokens += rec["tokens"]
+        return {
+            "by_stage_task": by_stage_task,
+            "by_model": by_model,
+            "total_tokens": total_tokens,
+        }
 
     def __init__(
         self,
@@ -188,6 +219,7 @@ class ModelRouter:
                     tokens=result.total_tokens,
                 )
 
+                self._record_token_usage(task, model, result)
                 return result
 
             except Exception as e:
@@ -230,6 +262,7 @@ class ModelRouter:
                                 model=model,
                                 tokens=result.total_tokens,
                             )
+                            self._record_token_usage(task, model, result)
                             return result
                         except Exception:
                             # Fall through to normal fallback chain.
@@ -297,6 +330,17 @@ class ModelRouter:
                 continue
 
         raise AllModelsFailedError(task=task, errors=errors)
+
+    def _record_token_usage(self, task: str, model: str, result: CompletionResult) -> None:
+        """Append a token-usage record to the class-level log."""
+        ctx = contextvars.get_contextvars()
+        stage = ctx.get("pipeline_stage", "unknown")
+        self._token_log.append({
+            "pipeline_stage": stage,
+            "task": task,
+            "model": model,
+            "tokens": result.total_tokens,
+        })
 
     async def close(self) -> None:
         """Close the underlying client."""
