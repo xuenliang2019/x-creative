@@ -308,6 +308,7 @@ x-creative answer -q "如何提高分布式系统的容错能力"
 | `--no-saga` | - | 关 | 禁用 SAGA 监督 |
 | `--fresh` | - | 关 | 跳过预定义 YAML 域，由 LLM 从零生成 |
 | `--output` | `-o` | - | 保存 Markdown 报告到文件 |
+| `--log-file` | - | - | 将运行日志同时写入指定文件（纯文本，无 ANSI 颜色码） |
 
 #### answer 使用示例
 
@@ -329,6 +330,9 @@ x-creative answer -q "测试问题" --no-saga --no-hkg
 
 # 全新生成模式（跳过预定义 YAML，由 LLM 从零生成目标域和源域）
 x-creative answer -q "探索量子计算对密码学的影响" --fresh
+
+# 将日志写入文件，用于事后分析
+x-creative answer -q "如何提高分布式系统的容错能力" --log-file log/answer.log
 ```
 
 #### answer 输出

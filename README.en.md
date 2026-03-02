@@ -312,6 +312,7 @@ This single command automatically executes: problem framing → target domain in
 | `--no-saga` | - | off | Disable SAGA supervision |
 | `--fresh` | - | off | Skip pre-defined YAML domains, generate from scratch via LLM |
 | `--output` | `-o` | - | Save Markdown report to file |
+| `--log-file` | - | - | Write run logs to file (plain text, no ANSI color codes) |
 
 #### answer Usage Examples
 
@@ -333,6 +334,9 @@ x-creative answer -q "Test question" --no-saga --no-hkg
 
 # Fresh generation mode (skip pre-defined YAML, LLM generates domains from scratch)
 x-creative answer -q "Explore the impact of quantum computing on cryptography" --fresh
+
+# Write logs to file for post-run analysis
+x-creative answer -q "How to improve fault tolerance in distributed systems" --log-file log/answer.log
 ```
 
 #### answer Output
