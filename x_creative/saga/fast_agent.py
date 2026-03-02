@@ -599,6 +599,7 @@ class FastAgent:
                     "total_rounds": int(getattr(config, "search_depth", 0) or 0),
                     "hypothesis_count": len(pool),
                     "new_count": new_count,
+                    "top_hypotheses": _build_top_hypotheses(pool),
                 },
                 metrics=self._extract_event_metrics(pool),
             )
