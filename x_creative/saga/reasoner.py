@@ -783,6 +783,8 @@ class Reasoner:
         if not constraint_block:
             constraint_block = "HardCore constraints (must satisfy):\n- none"
 
+        route_config = get_settings().get_model_config("reasoner_step")
+
         # Build risk injection block for refinement rounds
         risk_injection = ""
         if prior_risks:
@@ -837,7 +839,13 @@ class Reasoner:
         if result.finish_reason == "length":
             logger.warning(
                 "Step 5 output truncated (hit max_tokens)",
+                task="reasoner_step",
+                configured_model=route_config.model,
+                configured_max_tokens=route_config.max_tokens,
+                response_model=result.model,
+                prompt_tokens=result.prompt_tokens,
                 completion_tokens=result.completion_tokens,
+                finish_reason=result.finish_reason,
             )
 
         raw_content = result.content

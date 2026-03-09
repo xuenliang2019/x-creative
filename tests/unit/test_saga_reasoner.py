@@ -52,6 +52,20 @@ class _CaptureKwargsRouter:
         return _DummyCompletion(self._content)
 
 
+class _LengthFinishRouter:
+    def __init__(self, content: str, *, model: str = "deepseek/deepseek-v3.2") -> None:
+        self._content = content
+        self._model = model
+
+    async def complete(self, *, task, messages, **kwargs):  # noqa: ANN001, ANN002, ARG002
+        result = _DummyCompletion(self._content)
+        result.finish_reason = "length"
+        result.prompt_tokens = 3456
+        result.completion_tokens = 4096
+        result.model = self._model
+        return result
+
+
 def _hypothesis(
     hypothesis_id: str,
     *,
@@ -245,3 +259,46 @@ def test_step5_solution_planning_uses_route_token_config_without_callsite_overri
     assert router.last_task == "reasoner_step"
     assert router.last_messages
     assert "max_tokens" not in router.last_kwargs
+
+
+def test_step5_truncation_logs_diagnostic_fields() -> None:
+    router = _LengthFinishRouter('{"executive_summary":"summary"}')
+    reasoner = Reasoner(router=router)
+    belief = BeliefState()
+    belief.problem_analysis.core_challenge = "core challenge"
+
+    problem = ProblemFrame(
+        description="Design a robust implementation plan",
+        target_domain="general",
+    )
+
+    with (
+        patch(
+            "x_creative.saga.constraint_checker.compile_constraint_activation"
+        ) as mock_compile,
+        patch(
+            "x_creative.saga.constraint_checker.format_constraint_prompt_block",
+            return_value="HardCore constraints (must satisfy):\n- none",
+        ),
+        patch("x_creative.saga.reasoner.logger.warning") as mock_warning,
+        pytest.raises(Exception),
+    ):
+        mock_compile.return_value = object()
+        asyncio.run(
+            reasoner._step_solution_planning(
+                belief=belief,
+                problem=problem,
+                verify_markdown="",
+                selected=[],
+            )
+        )
+
+    assert mock_warning.call_count == 1
+    _, kwargs = mock_warning.call_args
+    assert kwargs["task"] == "reasoner_step"
+    assert kwargs["configured_model"]
+    assert kwargs["configured_max_tokens"]
+    assert kwargs["response_model"] == "deepseek/deepseek-v3.2"
+    assert kwargs["prompt_tokens"] == 3456
+    assert kwargs["completion_tokens"] == 4096
+    assert kwargs["finish_reason"] == "length"
