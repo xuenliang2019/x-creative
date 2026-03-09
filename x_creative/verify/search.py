@@ -7,6 +7,7 @@ This module implements stage 2 of novelty verification:
 """
 
 import asyncio
+import os
 import re
 from typing import Any
 
@@ -48,7 +49,21 @@ class SearchValidator:
         settings = get_settings()
         self._config = search_config or settings.search
         self._brave_config = brave_config or settings.brave_search
-        self._client = httpx.AsyncClient(timeout=30.0)
+        self._client = self._build_brave_client()
+
+    @staticmethod
+    def _build_brave_client() -> httpx.AsyncClient:
+        proxy = (
+            os.environ.get("HTTPS_PROXY")
+            or os.environ.get("https_proxy")
+            or os.environ.get("HTTP_PROXY")
+            or os.environ.get("http_proxy")
+            or os.environ.get("ALL_PROXY")
+            or os.environ.get("all_proxy")
+        )
+        if proxy:
+            return httpx.AsyncClient(timeout=30.0, proxy=proxy)
+        return httpx.AsyncClient(timeout=30.0)
 
     async def __aenter__(self) -> "SearchValidator":
         """Async context manager entry."""

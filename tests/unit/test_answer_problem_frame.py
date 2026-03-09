@@ -1,5 +1,7 @@
 """Tests for ProblemFrameBuilder."""
 
+import asyncio
+
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -106,3 +108,34 @@ class TestProblemFrameBuilder:
 
         builder = ProblemFrameBuilder()
         assert "open_source_development" in builder.available_domains
+
+    def test_build_preserves_explicit_numbered_constraints_from_question(self):
+        from x_creative.answer.problem_frame import ProblemFrameBuilder
+
+        question = (
+            "寻找一个适用于中国大陆 A 股市场的板块轮动策略架构，要求：\n"
+            "1. 能够适应不同市场 regime 的切换，\n"
+            "2. 可用数据只有来自于 tushare 的个股日线、ETF日线、财报、券商研报、融资融券、可转债，以及来自于淘宝的个股逐笔成交数据，\n"
+            "3. 满足涨停无法买入跌停无法卖出、T+1交割的交易规则。"
+        )
+        llm_response = """{
+            "objective": "寻找板块轮动策略架构",
+            "constraints": [{"text": "Data sources are restricted to Tushare (daily/financial/margin/reports) and Taobao tick data.", "source": "inferred", "confidence": 0.9}],
+            "scope": {"in_scope": ["A股"], "out_of_scope": []},
+            "definitions": {},
+            "success_criteria": [],
+            "domain_hint": {"domain_id": "general", "confidence": 0.8},
+            "open_questions": [],
+            "context": {}
+        }"""
+
+        with patch("x_creative.answer.problem_frame.ModelRouter") as MockRouter:
+            mock_router = MockRouter.return_value
+            mock_router.complete = AsyncMock(return_value=type("R", (), {"content": llm_response})())
+            mock_router.close = AsyncMock()
+
+            builder = ProblemFrameBuilder(router=mock_router)
+            result = asyncio.run(builder.build(question))
+
+        assert result.frame is not None
+        assert any("可转债" in text for text in result.frame.constraints)

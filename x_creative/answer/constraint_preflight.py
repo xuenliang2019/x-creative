@@ -25,6 +25,7 @@ class UserConstraintConflictError(RuntimeError):
 
 
 _WS_RE = re.compile(r"\s+")
+_NUMBERED_CONSTRAINT_RE = re.compile(r"^\s*\d+[\.、]\s*(.+?)\s*$")
 
 
 def _normalize_text(text: str) -> str:
@@ -35,6 +36,19 @@ def _canonical_user_constraints(problem: ProblemFrame) -> list[str]:
     """Return de-duped user constraint texts in stable order."""
     seen: set[str] = set()
     canonical: list[str] = []
+
+    for raw in str(problem.description or "").splitlines():
+        match = _NUMBERED_CONSTRAINT_RE.match(raw)
+        if not match:
+            continue
+        text = _normalize_text(match.group(1))
+        if not text:
+            continue
+        key = text.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        canonical.append(text)
 
     for raw in problem.constraints or []:
         text = _normalize_text(raw)
@@ -110,4 +124,3 @@ def preflight_user_constraints(problem: ProblemFrame) -> ProblemFrame:
             "structured_constraints": structured,
         }
     )
-

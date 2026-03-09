@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any
 
 from x_creative.answer.prompts import PROBLEM_FRAME_PROMPT
@@ -15,6 +16,7 @@ from x_creative.llm.router import ModelRouter
 logger = logging.getLogger(__name__)
 
 CLARIFICATION_THRESHOLD = 0.3
+_NUMBERED_CONSTRAINT_RE = re.compile(r"^\s*\d+[\.、]\s*(.+?)\s*$")
 
 
 class ProblemFrameBuilder:
@@ -70,6 +72,7 @@ class ProblemFrameBuilder:
 
         constraints_raw = parsed.get("constraints", [])
         constraints = [c["text"] for c in constraints_raw if isinstance(c, dict) and "text" in c]
+        constraints = self._merge_explicit_numbered_constraints(question, constraints)
 
         frame = ProblemFrame(
             description=question,
@@ -94,6 +97,22 @@ class ProblemFrameBuilder:
             )
 
         return FrameBuildResult(frame=frame, confidence=confidence)
+
+    @staticmethod
+    def _merge_explicit_numbered_constraints(question: str, constraints: list[str]) -> list[str]:
+        seen = {str(item).strip().lower() for item in constraints if str(item).strip()}
+        merged = [str(item).strip() for item in constraints if str(item).strip()]
+        for raw_line in str(question).splitlines():
+            match = _NUMBERED_CONSTRAINT_RE.match(raw_line)
+            if not match:
+                continue
+            text = match.group(1).strip()
+            key = text.lower()
+            if not text or key in seen:
+                continue
+            seen.add(key)
+            merged.append(text)
+        return merged
 
     def _make_clarification_question(self, parsed: dict[str, Any]) -> str:
         """Generate a clarification question from parsed output."""

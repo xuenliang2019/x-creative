@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 from unittest.mock import patch
 
 import pytest
@@ -237,3 +239,57 @@ async def test_solver_raises_when_constraints_never_pass() -> None:
                 ],
                 auto_refine=False,
             )
+
+
+def test_solver_persists_final_compliance_report_on_failure(tmp_path) -> None:
+    from x_creative.saga.constraint_compliance import UserConstraintComplianceError
+    from x_creative.saga.solve import TalkerReasonerSolver
+
+    router = _ScriptedRouter(
+        responses=[
+            '{"overall_pass": false, "items": [{"id":"C1","text":"must do X","verdict":"fail","rationale":"missing","suggested_fix":"add X"}]}',
+            "# Solution v2\n\nStill missing.\n",
+            '{"overall_pass": false, "items": [{"id":"C1","text":"must do X","verdict":"fail","rationale":"still missing","suggested_fix":"add X"}]}',
+            "# Solution v3\n\nStill missing.\n",
+            '{"overall_pass": false, "items": [{"id":"C1","text":"must do X","verdict":"fail","rationale":"final miss","suggested_fix":"add X now"}]}',
+        ]
+    )
+
+    problem = ProblemFrame(
+        description="test",
+        target_domain="general",
+        structured_constraints=[
+            ConstraintSpec(text="must do X", origin="user", type="hard", priority="critical", weight=1.0),
+        ],
+    )
+
+    solver = TalkerReasonerSolver(router=router, session_dir=tmp_path)
+    with (
+        patch("x_creative.saga.solve.Reasoner", _DummyReasoner),
+        patch("x_creative.saga.solve.Talker", _DummyTalker),
+    ):
+        with pytest.raises(UserConstraintComplianceError):
+            asyncio.run(
+                solver.run(
+                    problem=problem,
+                    verify_markdown="",
+                    hypotheses=[
+                        Hypothesis(
+                            id="h1",
+                            description="d",
+                            source_domain="s",
+                            source_structure="st",
+                            analogy_explanation="a",
+                            observable="o",
+                        )
+                    ],
+                    auto_refine=False,
+                )
+            )
+
+    report_path = tmp_path / "constraint_compliance_failure.json"
+    assert report_path.exists()
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert payload["message"] == "User constraint compliance failed after 2 revision rounds"
+    assert payload["audit_report"]["overall_pass"] is False
+    assert payload["audit_report"]["items"][0]["rationale"] == "final miss"

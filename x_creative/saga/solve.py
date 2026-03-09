@@ -197,14 +197,19 @@ class TalkerReasonerSolver:
                     break
 
             if not last_report.overall_pass:
+                failure_report = {
+                    "message": (
+                        "User constraint compliance failed after "
+                        f"{max_revision_rounds} revision rounds"
+                    ),
+                    "audit_report": last_report.model_dump(mode="json"),
+                }
+                self._persist_constraint_compliance_failure(
+                    report=failure_report,
+                    solution_markdown=solution,
+                )
                 raise UserConstraintComplianceError(
-                    {
-                        "message": (
-                            "User constraint compliance failed after "
-                            f"{max_revision_rounds} revision rounds"
-                        ),
-                        "audit_report": last_report.model_dump(mode="json"),
-                    }
+                    failure_report
                 )
 
         # 4. Build result
@@ -555,6 +560,40 @@ class TalkerReasonerSolver:
             logger.info("Reasoning trace persisted", path=str(trace_path), steps=len(belief.reasoning_steps))
         except Exception as exc:
             logger.warning("Failed to persist reasoning trace", error=str(exc))
+
+    def _persist_constraint_compliance_failure(
+        self,
+        report: dict[str, Any],
+        solution_markdown: str,
+    ) -> None:
+        """Persist final compliance failure details for post-mortem debugging."""
+        if not self._session_dir:
+            logger.warning(
+                "Constraint compliance failed without session_dir",
+                message=report.get("message", ""),
+                audit_report=report.get("audit_report", {}),
+            )
+            return
+
+        self._session_dir.mkdir(parents=True, exist_ok=True)
+        report_path = self._session_dir / "constraint_compliance_failure.json"
+        solution_path = self._session_dir / "constraint_compliance_failure_solution.md"
+
+        try:
+            report_path.write_text(
+                json.dumps(report, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            solution_path.write_text(solution_markdown, encoding="utf-8")
+            logger.warning(
+                "Constraint compliance failure persisted",
+                path=str(report_path),
+                solution_path=str(solution_path),
+                message=report.get("message", ""),
+                audit_report=report.get("audit_report", {}),
+            )
+        except Exception as exc:
+            logger.warning("Failed to persist constraint compliance failure", error=str(exc))
 
     async def _report_progress(self, event: str, payload: dict[str, Any]) -> None:
         callback = self._progress_callback

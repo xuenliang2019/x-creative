@@ -77,6 +77,39 @@ class TestSearchValidator:
         validator = SearchValidator()
         assert validator is not None
 
+    def test_build_brave_client_uses_system_proxy_when_present(self, monkeypatch) -> None:
+        monkeypatch.setenv("HTTPS_PROXY", "http://proxy.example:8443")
+        monkeypatch.delenv("HTTP_PROXY", raising=False)
+        captured: dict[str, object] = {}
+
+        def fake_async_client(*args, **kwargs):
+            captured["args"] = args
+            captured["kwargs"] = kwargs
+            return MagicMock()
+
+        monkeypatch.setattr(httpx, "AsyncClient", fake_async_client)
+
+        SearchValidator._build_brave_client()  # noqa: SLF001
+
+        assert captured["kwargs"]["proxy"] == "http://proxy.example:8443"
+
+    def test_build_brave_client_has_no_proxy_when_env_absent(self, monkeypatch) -> None:
+        monkeypatch.delenv("HTTP_PROXY", raising=False)
+        monkeypatch.delenv("HTTPS_PROXY", raising=False)
+        monkeypatch.delenv("ALL_PROXY", raising=False)
+        captured: dict[str, object] = {}
+
+        def fake_async_client(*args, **kwargs):
+            captured["args"] = args
+            captured["kwargs"] = kwargs
+            return MagicMock()
+
+        monkeypatch.setattr(httpx, "AsyncClient", fake_async_client)
+
+        SearchValidator._build_brave_client()  # noqa: SLF001
+
+        assert "proxy" not in captured["kwargs"]
+
     def test_validator_with_custom_config(self) -> None:
         """Test creating a validator with custom search config."""
         config = SearchConfig(
