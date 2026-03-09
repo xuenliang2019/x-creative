@@ -829,7 +829,6 @@ class Reasoner:
         result = await self._router.complete(
             task="reasoner_step",
             messages=messages,
-            max_tokens=16384,
         )
         belief.total_llm_calls += 1
         belief.total_tokens_used += result.prompt_tokens + result.completion_tokens
@@ -839,7 +838,6 @@ class Reasoner:
             logger.warning(
                 "Step 5 output truncated (hit max_tokens)",
                 completion_tokens=result.completion_tokens,
-                max_tokens=16384,
             )
 
         raw_content = result.content

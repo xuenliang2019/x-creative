@@ -1,5 +1,7 @@
 """Tests for Reasoner ranking and constraint deduplication."""
 
+import asyncio
+
 from unittest.mock import patch
 
 import pytest
@@ -33,6 +35,20 @@ class _CaptureRouter:
 
     async def complete(self, task, messages, temperature=None, max_tokens=None, **kwargs):  # noqa: ANN001, ANN002, ARG002
         self.last_messages = messages
+        return _DummyCompletion(self._content)
+
+
+class _CaptureKwargsRouter:
+    def __init__(self, content: str) -> None:
+        self._content = content
+        self.last_task: str | None = None
+        self.last_messages: list[dict] = []
+        self.last_kwargs: dict = {}
+
+    async def complete(self, *, task, messages, **kwargs):  # noqa: ANN001, ANN002
+        self.last_task = task
+        self.last_messages = messages
+        self.last_kwargs = kwargs
         return _DummyCompletion(self._content)
 
 
@@ -186,3 +202,46 @@ async def test_solution_planning_uses_configured_constraint_budget() -> None:
 
     assert mock_compile.call_count == 1
     assert mock_compile.call_args.kwargs["max_constraints"] == 9
+
+
+def test_step5_solution_planning_uses_route_token_config_without_callsite_override() -> None:
+    router = _CaptureKwargsRouter(
+        "{"
+        '"executive_summary":"summary",'
+        '"key_insights":["k1"],'
+        '"phases":[{"name":"p1","objective":"o","actions":["a1"],"evidence_refs":["E1"],"duration":"1w","success_metric":"m"}],'
+        '"dependencies":[],'
+        '"tools_and_resources":[]'
+        "}"
+    )
+    reasoner = Reasoner(router=router)
+    belief = BeliefState()
+    belief.problem_analysis.core_challenge = "core challenge"
+
+    problem = ProblemFrame(
+        description="Design a robust implementation plan",
+        target_domain="general",
+    )
+
+    with (
+        patch(
+            "x_creative.saga.constraint_checker.compile_constraint_activation"
+        ) as mock_compile,
+        patch(
+            "x_creative.saga.constraint_checker.format_constraint_prompt_block",
+            return_value="HardCore constraints (must satisfy):\n- none",
+        ),
+    ):
+        mock_compile.return_value = object()
+        asyncio.run(
+            reasoner._step_solution_planning(
+                belief=belief,
+                problem=problem,
+                verify_markdown="",
+                selected=[],
+            )
+        )
+
+    assert router.last_task == "reasoner_step"
+    assert router.last_messages
+    assert "max_tokens" not in router.last_kwargs
